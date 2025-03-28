@@ -1,0 +1,141 @@
+(footprint "L_EATON_DR1030-220-R"
+	(version 20240108)
+	(generator "pcbnew")
+	(generator_version "8.0")
+	(layer "F.Cu")
+	(descr "Neosid, Inductor,SM-NE95H, Fixed inductor, SMD, https://neosid.de/import-data/product-pdf/neoFestind_SMNE95H.pdf")
+	(tags "Neosid Inductor SM-NE95H Fixed inductor SMD")
+	(property "Reference" "REF**"
+		(at 0 -5.9 0)
+		(layer "F.SilkS")
+		(uuid "9cff2810-2d4f-4d19-a513-c44d6200a0c4")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "L_EATON_DR1030-220-R"
+		(at 0 6.6 0)
+		(layer "F.Fab")
+		(uuid "7055b12d-ca84-4797-ba2d-20ce48425a4b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "faeabc24-9e70-41f2-8bb7-f206f1a53cbc")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "b74706c8-fdc6-4ac8-8795-48693873835d")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "ee5b5492-4d17-4ad7-a76c-56a499574634")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_rect
+		(start -5.3 -5.4)
+		(end 5.3 5.4)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill none)
+		(layer "F.SilkS")
+		(uuid "a02383ec-7928-42a2-87d0-92fee4ba63ff")
+	)
+	(fp_rect
+		(start -5.15 -5.25)
+		(end 5.15 5.25)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill none)
+		(layer "Dwgs.User")
+		(uuid "50bceb2d-73bb-4f33-8654-d6611d9433e4")
+	)
+	(fp_rect
+		(start -5.4 -5.5)
+		(end 5.4 5.5)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill none)
+		(layer "F.CrtYd")
+		(uuid "b6a5f051-9469-46e3-8860-29b78216f96e")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "7bb5b975-36ef-47d3-ad63-20f8a19389c4")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(pad "1" smd roundrect
+		(at 0 -4.45)
+		(size 3.3 1.6)
+		(layers "F.Cu" "F.Paste" "F.Mask")
+		(roundrect_rratio 0.25)
+		(thermal_bridge_angle 45)
+		(uuid "5c69b64c-b5a0-4bbb-80b3-d381a07f4449")
+	)
+	(pad "2" smd roundrect
+		(at 0 4.45)
+		(size 3.3 1.6)
+		(layers "F.Cu" "F.Paste" "F.Mask")
+		(roundrect_rratio 0.25)
+		(thermal_bridge_angle 45)
+		(uuid "eba3c3e6-6bc1-4184-b019-52865b5b8acd")
+	)
+	(model "${KICAD8_3DMODEL_DIR}/Inductor_SMD.3dshapes/L_Neosid_SM-NE95H.wrl"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)
