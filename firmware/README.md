@@ -45,7 +45,7 @@ Decoded:
     Car ID: 03 
     Description: Car 3 finished the race.
 
-### Example 2: Car 2 Crosses the Lap Counter (Fastest Lap)
+### Example 2: Start lights changed
 Raw Message: 0xAA03
 Decoded:
     
