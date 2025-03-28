@@ -47,23 +47,6 @@ So we got:
 8. Number of light were lit on the starting lights. If the lights out, the race begin
 9. Total reset
 
-Via I2C you get the data by 2 bytes. First byte stores the identifier and the second byte contains the value. 
-
-## Decode Information
-Z = Car ID
-X = Placeholder for value
-
-- 0xFF0Z - car with ID finishes the race
-- 0xFEXZ - car with ID crosses the lap. If X = 1 then it does a new fastest lap
-- 0xFDXZ - speed of car with ID. This is a bit special. Z is a 4 bit number and X is a 12 bit number for the speed in mm/s
-- 0xFCXZ - fuel level of car with ID. Fuel level is a 3 bit integer value
-- 0xFBXZ - throttle of car with  ID
-- 0xFA0Z - car with ID jumps the start
-- 0xAA0X - number of lights were lit at the start light.
-- 0x0001 - total reset
-- 0x0002 - reset position and round counter
-
-
 # Contribute & Support
 
 Got ideas? Found a bug? Want to make it even cooler? 
