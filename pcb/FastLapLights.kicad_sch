@@ -2543,10 +2543,6 @@
 		(uuid "fc80f0bf-1dad-4f83-b00e-3dbc21896162")
 	)
 	(no_connect
-		(at 248.92 68.58)
-		(uuid "1ea0e5c5-76ae-45e0-b030-20bf15de8f2c")
-	)
-	(no_connect
 		(at 248.92 71.12)
 		(uuid "259fad07-50dd-409b-b999-a2958bdaa136")
 	)
@@ -2565,6 +2561,10 @@
 	(no_connect
 		(at 248.92 73.66)
 		(uuid "99f37f17-1dd6-4f8d-8bb8-74a4a23a3838")
+	)
+	(no_connect
+		(at 248.92 66.04)
+		(uuid "a54356ef-c947-4961-8a07-f75b2e37eef8")
 	)
 	(no_connect
 		(at 248.92 76.2)
@@ -2859,16 +2859,6 @@
 			(type default)
 		)
 		(uuid "526ab597-4f11-475c-90f5-844e433d2565")
-	)
-	(wire
-		(pts
-			(xy 248.92 66.04) (xy 267.97 66.04)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "56c215f6-c580-4773-bdc9-f62fb4c06a49")
 	)
 	(wire
 		(pts
@@ -3219,6 +3209,16 @@
 			(type default)
 		)
 		(uuid "c626abfb-f1ad-4dea-9471-2fade731f6f5")
+	)
+	(wire
+		(pts
+			(xy 248.92 68.58) (xy 267.97 68.58)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c6b616a3-bc9c-4a23-90b0-799530780d87")
 	)
 	(wire
 		(pts
@@ -3734,6 +3734,16 @@
 		)
 		(uuid "2bd259da-53a7-4f68-8630-3c67d2218be4")
 	)
+	(label "IO_POWER_RAIL_DATA"
+		(at 267.97 68.58 180)
+		(effects
+			(font
+				(size 1.1 1.1)
+			)
+			(justify right bottom)
+		)
+		(uuid "2ec93908-d873-44fc-8fc2-7d6a22f59f68")
+	)
 	(label "VRAIL_CAP"
 		(at 49.53 68.58 0)
 		(effects
@@ -3833,16 +3843,6 @@
 			(justify right bottom)
 		)
 		(uuid "865d70b1-a32f-44d1-bf3f-52e639ea68f6")
-	)
-	(label "IO_POWER_RAIL_DATA"
-		(at 267.97 66.04 180)
-		(effects
-			(font
-				(size 1.1 1.1)
-			)
-			(justify right bottom)
-		)
-		(uuid "956a3b28-f809-49b9-9490-c9f0f3beb6f3")
 	)
 	(label "START_LIGHTS"
 		(at 262.89 53.34 180)
