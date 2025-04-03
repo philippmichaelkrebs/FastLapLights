@@ -21,22 +21,23 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "track_data_decoder.h"
+#include "ws2812b_start_lights.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define TRACK_INT_BUF_LEN 16
+#define TRACK_INT_DEBOUNCE 10U // debounce of track interrupts in us
+#define TRACK_DATA_CPLT_WAIT 220U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -46,7 +47,28 @@ TIM_HandleTypeDef htim3;
 DMA_HandleTypeDef hdma_tim1_up;
 
 /* USER CODE BEGIN PV */
+volatile int32_t trackDataFallingEdge[TRACK_INT_BUF_LEN];
+volatile uint16_t trackDataCpltTimestamp;
+volatile uint8_t trackDataBufferIndex = 0;
+volatile uint16_t trackDataAvailable = 0;
+uint16_t trackDataPreviousCounter = 0;
 
+uint8_t safetycarCounter = 0; // necessary because of ghost car messages
+uint8_t safetycarFlag = 0;
+uint8_t safetycarReleasedFlag = 0;
+uint8_t safetycarGreenFlag = 0;
+uint32_t safetycarReleasedTime = 0;
+uint8_t safetycarLastState = 0;
+uint32_t safetycarMillisBlink = 0;
+
+uint8_t jumpStartFlag = 0;
+uint32_t jumpStartTriggered = 0;
+uint32_t jumpStartRelease = 0;
+
+
+uint8_t START_LIGHT_UpdateFlag = 0;
+
+HAL_StatusTypeDef dmaStatusPWM = HAL_OK;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -97,16 +119,43 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  START_LIGHTS_Init(&htim1, TIM_CHANNEL_1, TIM_DIER_CC1DE);
+  HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
 
+  // init manchester detect buffer
+  for (int i = 0; i < TRACK_INT_BUF_LEN; i++)
+	  trackDataFallingEdge[i] = -1;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-
+	  /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
+
+
+	  // process data
+	  uint16_t timCNT = TIM3->CNT;
+	  if ((trackDataAvailable == 1) && (timCNT - trackDataCpltTimestamp > TRACK_DATA_CPLT_WAIT)){
+
+		  int32_t bufferCopy[TRACK_INT_BUF_LEN];
+		  for (int i = 0; i < TRACK_INT_BUF_LEN; i++)
+			  bufferCopy[i] = trackDataFallingEdge[i];
+
+		  trackDataBufferIndex = 0;
+		  trackDataAvailable = 0;
+
+		  CuMessage decodedData = decodeManchester(bufferCopy, TRACK_INT_BUF_LEN);
+
+	  }
+
+
+	  if (1 == START_LIGHT_UpdateFlag){
+		  START_LIGHT_UpdateFlag = 0;
+		  dmaStatusPWM = START_LIGHTS_Update(&htim1);
+	  }
+
   }
   /* USER CODE END 3 */
 }
@@ -338,7 +387,24 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
+	if (htim->Instance == TIM3){
+		uint16_t counterValue = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+		uint16_t debounceCheck = counterValue - trackDataPreviousCounter;
+		if (debounceCheck > TRACK_INT_DEBOUNCE){
+			trackDataPreviousCounter = counterValue;
+			trackDataAvailable = 1;
+			trackDataCpltTimestamp = counterValue;
+			trackDataFallingEdge[trackDataBufferIndex] = counterValue;
+			trackDataBufferIndex++;
+		}
+	}
+}
 
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim){
+	if (htim == START_LIGHTS_TIM)
+		START_LIGHTS_DMA_Callback();
+}
 /* USER CODE END 4 */
 
 /**
