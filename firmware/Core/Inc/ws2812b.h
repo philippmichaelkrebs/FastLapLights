@@ -11,12 +11,12 @@
 #define WS2812B_T0H 			19 // 0.4us
 #define WS2812B_T1H				38//38 // 0.8us
 #define WS2812B_RES_PERIOD		300 // gt 40 cycls or above 50us
-#define WS2812B_LED_BITS		24 // Composition: G7, G6, .. , G0, R7, ... , R0, B7, ..., B0
+#define WS2812B_LED_BITS		24U // Composition: G7, G6, .. , G0, R7, ... , R0, B7, ..., B0
 
 typedef struct
 {
-	uint8_t r;
 	uint8_t g;
+	uint8_t r;
 	uint8_t b;
 } WS2812B_LED;
 

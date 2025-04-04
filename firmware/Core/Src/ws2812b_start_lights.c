@@ -43,37 +43,19 @@ void START_LIGHTS_SetColour(uint8_t index, uint8_t r, uint8_t g, uint8_t b){
 HAL_StatusTypeDef START_LIGHTS_Update(){
 	// previous transfer completed
 
-	if (1 != START_LIGHTS_DMA_CPLT_FLAG){
-		return HAL_BUSY;
+	if ((START_LIGHTS_TIM->hdma[START_LIGHTS_TIM_CHANNEL]->State == HAL_DMA_STATE_READY) && !START_LIGHTS_DMA_CPLT_FLAG){
+		return START_LIGHTS_TIM->hdma[START_LIGHTS_TIM_CHANNEL]->State;
 	}
 
-	uint16_t _bufIndex = 0;
-	for (uint16_t led = 0; led < START_LIGHTS; led++){
-
-		for (uint8_t greenIndex = 0; greenIndex < 8; greenIndex++){
-			if (START_LIGHTS_DATA[led].g & (0x01 << (7-greenIndex)))
-				START_LIGHTS_DMA_BUF[_bufIndex] = WS2812B_T1H;
-			else
-				START_LIGHTS_DMA_BUF[_bufIndex] = WS2812B_T0H;
-			_bufIndex++;
+	uint16_t bufIdx = 0;
+	for (uint16_t led = 0; led < START_LIGHTS; led++) {
+			uint8_t *lds = (uint8_t *)&START_LIGHTS_DATA[led];
+			// g, r, b - MSB
+			for (uint8_t byte = 0; byte < 3; byte++)
+				for (int8_t bit = 7; bit >= 0; bit--)
+					START_LIGHTS_DMA_BUF[bufIdx++] =
+							(lds[byte] & (1 << bit)) ? WS2812B_T1H : WS2812B_T0H;
 		}
-
-		for (uint8_t redIndex = 0; redIndex < 8; redIndex++){
-			if (START_LIGHTS_DATA[led].r & (0x01 << (7-redIndex)))
-				START_LIGHTS_DMA_BUF[_bufIndex] = WS2812B_T1H;
-			else
-				START_LIGHTS_DMA_BUF[_bufIndex] = WS2812B_T0H;
-			_bufIndex++;
-		}
-
-		for (uint8_t blueIndex = 0; blueIndex < 8; blueIndex++){
-			if (START_LIGHTS_DATA[led].b & (0x01 << (7-blueIndex)))
-				START_LIGHTS_DMA_BUF[_bufIndex] = WS2812B_T1H;
-			else
-				START_LIGHTS_DMA_BUF[_bufIndex] = WS2812B_T0H;
-			_bufIndex++;
-		}
-	}
 
 	HAL_StatusTypeDef halStatus = HAL_TIM_PWM_Start_DMA(START_LIGHTS_TIM, START_LIGHTS_TIM_CHANNEL, (uint32_t *) START_LIGHTS_DMA_BUF, START_LIGHTS_DMA_BUF_LEN);
 
@@ -94,6 +76,20 @@ void START_LIGHTS_DMA_Callback(){
 	// TODO Work out
 	// - why DMA throws error by stopping via HAL
 	// - which flags reset by HAL after dma stops
+	// - how to set HAL_TIM_PWM_Start_DMA to update event. Almost impossible
+	//   change TIM_DMA_CC1 to TIM_DMA_UPDATE / TIM_DMA_ID_UPDATE leads to dma reset during
+	//   invoke of HAL_DMA_Start_IT.
+	//   That drives me bonkers
+	/*
+	 * does not work but its helpful:
+	 * https://community.st.com/t5/stm32cubemx-mcus/advanced-timer-1-with-dma-hangs-if-compare-register-equals-0/td-p/246877
+	 *
+	 * does not work as well
+	 * https://electronics.stackexchange.com/questions/471148/stm32f1xx-how-to-use-dma-to-write-to-timx-ccr
+	 *
+	 * lets test this next:
+	 * https://community.st.com/t5/stm32-mcus-products/tim1-update-does-not-request-dma/td-p/747451
+	 */
 
 	// Enable the update request DMA event
 	SET_BIT(START_LIGHTS_TIM->Instance->DIER, TIM_DIER_UDE);
