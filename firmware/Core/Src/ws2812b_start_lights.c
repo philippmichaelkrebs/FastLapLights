@@ -47,7 +47,7 @@ HAL_StatusTypeDef START_LIGHTS_Update(){
 		return START_LIGHTS_TIM->hdma[START_LIGHTS_TIM_CHANNEL]->State;
 	}
 
-	uint16_t bufIdx = 0;
+	uint16_t bufIdx = 1; // start by one to let dma start properly
 	for (uint16_t led = 0; led < START_LIGHTS; led++) {
 			uint8_t *lds = (uint8_t *)&START_LIGHTS_DATA[led];
 			// g, r, b - MSB
