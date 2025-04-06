@@ -21,9 +21,9 @@ extern			TIM_HandleTypeDef	*START_LIGHTS_TIM;
 extern			uint32_t			START_LIGHTS_TIM_CHANNEL;
 extern			uint32_t			START_LIGHTS_TIM_DIER_CCxDE;
 
-HAL_StatusTypeDef 	START_LIGHTS_Init(TIM_HandleTypeDef *htim, uint32_t channel, uint32_t ccxde);
-void				START_LIGHTS_SetColour(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
-HAL_StatusTypeDef 	START_LIGHTS_Update();
-void				START_LIGHTS_DMA_Callback();
+HAL_StatusTypeDef 	start_lights_init(TIM_HandleTypeDef *htim, uint32_t channel, uint32_t ccxde);
+void				start_lights_set_colour(uint8_t index, uint8_t r, uint8_t g, uint8_t b);
+HAL_StatusTypeDef 	start_lights_update();
+void				start_lights_dma_callback();
 
 #endif /* INC_WS2812B_START_LIGHTS_H_ */

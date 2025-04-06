@@ -7,7 +7,7 @@ TIM_HandleTypeDef	*START_LIGHTS_TIM;
 uint32_t			START_LIGHTS_TIM_CHANNEL;
 uint32_t			START_LIGHTS_TIM_DIER_CCxDE;
 
-HAL_StatusTypeDef START_LIGHTS_Init(TIM_HandleTypeDef *htim, uint32_t channel, uint32_t ccxde){
+HAL_StatusTypeDef start_lights_init(TIM_HandleTypeDef *htim, uint32_t channel, uint32_t ccxde){
 	if (htim == NULL)
 		return HAL_ERROR;  // Return an error if htim is NULL
 
@@ -32,7 +32,7 @@ HAL_StatusTypeDef START_LIGHTS_Init(TIM_HandleTypeDef *htim, uint32_t channel, u
 	return halStatus;
 }
 
-void START_LIGHTS_SetColour(uint8_t index, uint8_t r, uint8_t g, uint8_t b){
+void start_lights_set_colour(uint8_t index, uint8_t r, uint8_t g, uint8_t b){
 	if ((index < START_LIGHTS) && (START_LIGHTS_DMA_CPLT_FLAG == 1)){
 		START_LIGHTS_DATA[index].r = r;
 		START_LIGHTS_DATA[index].g = g;
@@ -40,7 +40,7 @@ void START_LIGHTS_SetColour(uint8_t index, uint8_t r, uint8_t g, uint8_t b){
 	}
 }
 
-HAL_StatusTypeDef START_LIGHTS_Update(){
+HAL_StatusTypeDef start_lights_update(){
 	// previous transfer completed
 
 	if ((START_LIGHTS_TIM->hdma[START_LIGHTS_TIM_CHANNEL]->State == HAL_DMA_STATE_READY) && !START_LIGHTS_DMA_CPLT_FLAG){
@@ -65,7 +65,7 @@ HAL_StatusTypeDef START_LIGHTS_Update(){
 	return halStatus;
 }
 
-void START_LIGHTS_DMA_Callback(){
+void start_lights_dma_callback(){
 	// leads to dma error
 	//HAL_StatusTypeDef status = HAL_TIM_PWM_Stop_DMA(START_LIGHTS_TIM, START_LIGHTS_TIM_CHANNEL);
 

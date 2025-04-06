@@ -27,6 +27,30 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef enum {
+	RACE_STATE_STARTUP,
+	RACE_STATE_RED_FLAG,
+	RACE_STATE_YELLOW_FLAG,
+	RACE_STATE_GREEN_FLAG,
+	RACE_STATE_START_PROC,
+	RACE_STATE_JUMP_START,
+	RACE_STATE_OPEN
+} RaceState;
+
+typedef struct {
+    RaceState curr;
+    RaceState prev;
+} RaceStateHistory;
+
+typedef struct {
+	uint8_t red_count; 			// 0 - 5
+	uint8_t red_count_prev;
+	uint8_t yellow_flag; 		// 0 - 1
+	uint8_t yellow_flag_prev;
+	uint8_t green_flag; 		// 0 - 1
+	uint8_t green_flag_prev;
+	uint8_t update_flag;
+} StartLightValue;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -44,31 +68,34 @@
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim17;
 DMA_HandleTypeDef hdma_tim1_up;
 
 /* USER CODE BEGIN PV */
-volatile int32_t trackDataFallingEdge[TRACK_INT_BUF_LEN];
-volatile uint16_t trackDataCpltTimestamp;
-volatile uint8_t trackDataBufferIndex = 0;
-volatile uint16_t trackDataAvailable = 0;
-uint16_t trackDataPreviousCounter = 0;
+volatile uint32_t millis = 0;
 
-uint8_t safetycarCounter = 0; // necessary because of ghost car messages
-uint8_t safetycarFlag = 0;
-uint8_t safetycarReleasedFlag = 0;
-uint8_t safetycarGreenFlag = 0;
-uint32_t safetycarReleasedTime = 0;
-uint8_t safetycarLastState = 0;
-uint32_t safetycarMillisBlink = 0;
+// track data
+volatile int32_t track_data_falling[TRACK_INT_BUF_LEN];
+volatile uint16_t track_data_completed_ts;
+volatile uint8_t track_data_buff_idx = 0;
+volatile uint16_t track_data_available = 0;
+uint16_t track_data_previous_counter_value = 0;
 
-uint8_t jumpStartFlag = 0;
-uint32_t jumpStartTriggered = 0;
-uint32_t jumpStartRelease = 0;
+// state and transition handling
+RaceStateHistory race_state = {RACE_STATE_STARTUP, RACE_STATE_STARTUP};
+StartLightValue start_light_value = {0};
+uint32_t start_light_change_time = 0;
+
+uint8_t safetycar_debounce = 0; // neccessary because of ghost car messages
+uint32_t green_flag_triggered_time = 0;
+uint32_t safetycar_flash_interval = 0;
+
+uint32_t green_flag_millis_flash = 0;
+
+uint32_t jump_start_millis_flash = 0;
 
 
-uint8_t START_LIGHT_UpdateFlag = 0;
-
-HAL_StatusTypeDef dmaStatusPWM = HAL_OK;
+HAL_StatusTypeDef dma_status_pwm = HAL_OK;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,13 +104,33 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_TIM17_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static inline void update_race_state(RaceStateHistory *stateHistory, RaceState newState) {
+    stateHistory->prev = stateHistory->curr;
+    stateHistory->curr = newState;
+}
 
+static inline void update_start_light_value_red(StartLightValue *startLightValue, uint8_t newValue) {
+	startLightValue->red_count = newValue;
+	startLightValue->red_count_prev = startLightValue->red_count;
+	startLightValue->update_flag = 1;
+}
+static inline void update_start_light_value_green(StartLightValue *startLightValue, uint8_t newValue) {
+	startLightValue->green_flag = newValue;
+	startLightValue->green_flag_prev = startLightValue->green_flag;
+	startLightValue->update_flag = 1;
+}
+static inline void update_start_light_value_yellow(StartLightValue *startLightValue, uint8_t newValue) {
+	startLightValue->yellow_flag = newValue;
+	startLightValue->yellow_flag_prev = startLightValue->yellow_flag;
+	startLightValue->update_flag = 1;
+}
 /* USER CODE END 0 */
 
 /**
@@ -118,43 +165,184 @@ int main(void)
   MX_DMA_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
+  MX_TIM17_Init();
   /* USER CODE BEGIN 2 */
-  START_LIGHTS_Init(&htim1, TIM_CHANNEL_1, TIM_DIER_CC1DE);
+  start_lights_init(&htim1, TIM_CHANNEL_1, TIM_DIER_CC1DE);
   HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
 
   // init manchester detect buffer
   for (int i = 0; i < TRACK_INT_BUF_LEN; i++)
-	  trackDataFallingEdge[i] = -1;
+	  track_data_falling[i] = -1;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  /* USER CODE END WHILE */
+    /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
 
 
 	  // process data
-	  uint16_t timCNT = TIM3->CNT;
-	  if ((trackDataAvailable == 1) && (timCNT - trackDataCpltTimestamp > TRACK_DATA_CPLT_WAIT)){
 
-		  int32_t bufferCopy[TRACK_INT_BUF_LEN];
+	  // process data
+	  uint16_t tim3_cnt = TIM3->CNT;
+	  if ((track_data_available == 1) && (tim3_cnt - track_data_completed_ts > 220)){
+
+		  // copy buffer
+		  int32_t buffer_copy[TRACK_INT_BUF_LEN];
 		  for (int i = 0; i < TRACK_INT_BUF_LEN; i++)
-			  bufferCopy[i] = trackDataFallingEdge[i];
+			  buffer_copy[i] = track_data_falling[i];
 
-		  trackDataBufferIndex = 0;
-		  trackDataAvailable = 0;
+		  // clear buffer
+		  for (int i = 0; i < TRACK_INT_BUF_LEN; i++)
+			  track_data_falling[i] = -1;
 
-		  CuMessage decodedData = decodeManchester(bufferCopy, TRACK_INT_BUF_LEN);
+		  // reset buffer variables
+		  track_data_buff_idx = 0;
+		  track_data_available = 0;
 
+		  // decode cu message
+		  CuMessage decoded_data = decodeManchester(buffer_copy, TRACK_INT_BUF_LEN);
+
+		  // set start light instantly
+		  if (CU_START_LIGHT == decoded_data.type){
+			  update_start_light_value_red(&start_light_value, decoded_data.value);
+
+			  if (decoded_data.value == 5 ){
+				  if (race_state.curr != RACE_STATE_START_PROC) // if start proc then it relates to it
+					  update_race_state(&race_state, RACE_STATE_RED_FLAG);
+			  } else if (decoded_data.value == 1) //
+				  update_race_state(&race_state, RACE_STATE_START_PROC);
+			  else if (decoded_data.value == 0) {
+				  if  ((race_state.curr == RACE_STATE_START_PROC) && race_state.prev == RACE_STATE_RED_FLAG){
+					  start_light_change_time = millis;
+				  }
+				  else if (race_state.curr == RACE_STATE_RED_FLAG){
+					  update_race_state(&race_state, RACE_STATE_GREEN_FLAG);
+					  green_flag_triggered_time = millis;
+				  }
+			  }
+		  }
+
+		  if (RACE_STATE_START_PROC == race_state.curr){
+			  if (!start_light_value.red_count && (millis - start_light_change_time > 400))
+				  update_race_state(&race_state, RACE_STATE_OPEN);
+		  }
+
+		  if (CU_CONTROLLER_JUMPSTART == decoded_data.type){
+			  update_race_state(&race_state, RACE_STATE_JUMP_START);
+		  }
+
+
+		  // check for yellow flag
+		  if (CU_CONTROLLER_SAFETY_CAR == decoded_data.type){
+			  if (decoded_data.value && (race_state.curr != RACE_STATE_YELLOW_FLAG))
+				  safetycar_debounce++;
+
+			  if (!decoded_data.value && (race_state.curr == RACE_STATE_YELLOW_FLAG))
+				  safetycar_debounce--;
+
+			  if ((1 < safetycar_debounce) && (race_state.curr != RACE_STATE_YELLOW_FLAG))
+				  update_race_state(&race_state, RACE_STATE_YELLOW_FLAG);
+
+			  if ((safetycar_debounce == 0) && (race_state.curr == RACE_STATE_YELLOW_FLAG)){
+				  update_race_state(&race_state, RACE_STATE_GREEN_FLAG);
+				  green_flag_triggered_time = millis;
+			  }
+		  }
 	  }
 
 
-	  if (1 == START_LIGHT_UpdateFlag){
-		  START_LIGHT_UpdateFlag = 0;
-		  dmaStatusPWM = START_LIGHTS_Update(&htim1);
+
+	  // start light value changed
+	  if (start_light_value.red_count != start_light_value.red_count_prev)
+		  update_start_light_value_red(&start_light_value, start_light_value.red_count);
+
+	  // SAFETY CAR
+	  if (RACE_STATE_YELLOW_FLAG == race_state.curr){
+		  if (millis - safetycar_flash_interval > 200){
+			  safetycar_flash_interval = millis;
+			  if (0 == start_light_value.yellow_flag)
+				  update_start_light_value_yellow(&start_light_value, 1);
+			  else
+				  update_start_light_value_yellow(&start_light_value, 0);
+		  }
+	  } else {
+		  if (start_light_value.yellow_flag && (RACE_STATE_JUMP_START != race_state.curr)){
+			  update_start_light_value_yellow(&start_light_value, 0);
+			  update_start_light_value_yellow(&start_light_value, 0);
+		  }
 	  }
+
+	  // green flag
+	  if (RACE_STATE_GREEN_FLAG == race_state.curr){
+		  if (millis - green_flag_millis_flash > 500){
+			  if (!start_light_value.green_flag){
+				  green_flag_millis_flash = millis;
+				  update_start_light_value_green(&start_light_value, 1);
+			  }else {
+				  green_flag_millis_flash = millis;
+				  update_start_light_value_green(&start_light_value, 0);
+			  }
+		  }
+
+		  if (millis - green_flag_triggered_time > 10000)
+			  update_race_state(&race_state, RACE_STATE_OPEN);
+	  }else{
+		  if (1 == start_light_value.green_flag)
+			  update_start_light_value_green(&start_light_value, 0);
+	  }
+
+
+	  // JUMP START
+	  if (RACE_STATE_JUMP_START == race_state.curr){
+		  if (millis - jump_start_millis_flash > 500){
+			  jump_start_millis_flash = millis;
+			  update_start_light_value_red(&start_light_value, 5);
+			  if (!start_light_value.yellow_flag)
+				  update_start_light_value_yellow(&start_light_value, 1);
+			  else
+				  update_start_light_value_yellow(&start_light_value, 0);
+		  }
+	  }
+
+
+	  if (start_light_value.update_flag){
+	  		  start_light_value.update_flag = 0;
+	  		  if (start_light_value.yellow_flag)
+	  			  for (uint8_t ylight = 0; ylight < 10; ylight++)
+	  				  start_lights_set_colour(ylight, 80, 25 , 0);
+	  		  else
+	  			  for (uint8_t ylight = 0; ylight < 10; ylight++)
+	  				  start_lights_set_colour(ylight, 0, 0 , 0);
+
+	  		  if (start_light_value.green_flag)
+	  			  for (uint8_t glight = 10; glight < 20; glight++)
+	  				  start_lights_set_colour(glight, 0, 100 , 0);
+	  		  else
+	  			  for (uint8_t glight = 10; glight < 20; glight++)
+	  				  start_lights_set_colour(glight, 0, 0 , 0);
+
+	  		  if (start_light_value.red_count){
+	  			  for (uint8_t light = 20; light < 40; light++)
+	  				  start_lights_set_colour(light, 0, 0, 0);
+
+	  			  for (uint8_t light = 0; light < start_light_value.red_count; light++){
+	  				  start_lights_set_colour(20+light, 200, 0, 0);
+	  				  start_lights_set_colour(25+light, 200, 0, 0);
+	  				  start_lights_set_colour(30+light, 200, 0, 0);
+	  				  start_lights_set_colour(35+light, 200, 0, 0);
+	  			  }
+	  		  } else {
+	  			  for (uint8_t light = 20; light < 40; light++){
+	  				  start_lights_set_colour(light, 0, 0, 0);
+	  			  }
+	  		  }
+
+	  		dma_status_pwm = start_lights_update();
+	  	  }
 
   }
   /* USER CODE END 3 */
@@ -343,6 +531,38 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM17 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM17_Init(void)
+{
+
+  /* USER CODE BEGIN TIM17_Init 0 */
+
+  /* USER CODE END TIM17_Init 0 */
+
+  /* USER CODE BEGIN TIM17_Init 1 */
+
+  /* USER CODE END TIM17_Init 1 */
+  htim17.Instance = TIM17;
+  htim17.Init.Prescaler = 48000-1;
+  htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim17.Init.Period = 100-1;
+  htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim17.Init.RepetitionCounter = 0;
+  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM17_Init 2 */
+
+  /* USER CODE END TIM17_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -390,20 +610,26 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 	if (htim->Instance == TIM3){
 		uint16_t counterValue = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-		uint16_t debounceCheck = counterValue - trackDataPreviousCounter;
+		uint16_t debounceCheck = counterValue - track_data_previous_counter_value;
 		if (debounceCheck > TRACK_INT_DEBOUNCE){
-			trackDataPreviousCounter = counterValue;
-			trackDataAvailable = 1;
-			trackDataCpltTimestamp = counterValue;
-			trackDataFallingEdge[trackDataBufferIndex] = counterValue;
-			trackDataBufferIndex++;
+			track_data_previous_counter_value = counterValue;
+			track_data_available = 1;
+			track_data_completed_ts = counterValue;
+			track_data_falling[track_data_buff_idx] = counterValue;
+			track_data_buff_idx++;
 		}
 	}
 }
 
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim){
 	if (htim == START_LIGHTS_TIM)
-		START_LIGHTS_DMA_Callback();
+		start_lights_dma_callback();
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim->Instance == TIM17){
+		millis+=100;
+	}
 }
 /* USER CODE END 4 */
 
