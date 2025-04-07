@@ -2543,10 +2543,6 @@
 		(uuid "fc80f0bf-1dad-4f83-b00e-3dbc21896162")
 	)
 	(no_connect
-		(at 248.92 71.12)
-		(uuid "259fad07-50dd-409b-b999-a2958bdaa136")
-	)
-	(no_connect
 		(at 248.92 78.74)
 		(uuid "39e1b07b-ff9a-4c1d-b38b-1eec1ab6e3bb")
 	)
@@ -2570,9 +2566,13 @@
 		(at 248.92 76.2)
 		(uuid "ba0bfd54-faaf-4510-b542-f014c842e0e2")
 	)
+	(no_connect
+		(at 248.92 58.42)
+		(uuid "fe81b5ce-f2a3-46ab-bbf7-7972a6e92530")
+	)
 	(wire
 		(pts
-			(xy 248.92 53.34) (xy 262.89 53.34)
+			(xy 248.92 53.34) (xy 267.97 53.34)
 		)
 		(stroke
 			(width 0)
@@ -2662,7 +2662,7 @@
 	)
 	(wire
 		(pts
-			(xy 248.92 60.96) (xy 262.89 60.96)
+			(xy 248.92 60.96) (xy 267.97 60.96)
 		)
 		(stroke
 			(width 0)
@@ -3002,7 +3002,7 @@
 	)
 	(wire
 		(pts
-			(xy 248.92 55.88) (xy 262.89 55.88)
+			(xy 248.92 55.88) (xy 267.97 55.88)
 		)
 		(stroke
 			(width 0)
@@ -3052,6 +3052,16 @@
 	)
 	(wire
 		(pts
+			(xy 248.92 71.12) (xy 267.97 71.12)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "87d68888-8698-450b-9d82-3951e37b19f8")
+	)
+	(wire
+		(pts
 			(xy 176.53 99.06) (xy 187.96 99.06)
 		)
 		(stroke
@@ -3072,7 +3082,7 @@
 	)
 	(wire
 		(pts
-			(xy 248.92 63.5) (xy 262.89 63.5)
+			(xy 248.92 63.5) (xy 267.97 63.5)
 		)
 		(stroke
 			(width 0)
@@ -3189,16 +3199,6 @@
 			(type default)
 		)
 		(uuid "bdaf4507-ef50-41ae-b6ed-918697fa236f")
-	)
-	(wire
-		(pts
-			(xy 248.92 58.42) (xy 262.89 58.42)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c1e3671e-130f-42e5-8ffb-1120d3dfe9bd")
 	)
 	(wire
 		(pts
@@ -3695,7 +3695,7 @@
 		(uuid "f79465ff-95cd-4f2b-8e48-e02ceeb1aee2")
 	)
 	(label "PIT_LANE_LIGHTS"
-		(at 262.89 55.88 180)
+		(at 267.97 55.88 180)
 		(effects
 			(font
 				(size 1.1 1.1)
@@ -3704,15 +3704,15 @@
 		)
 		(uuid "0aad5737-a10f-4258-825c-dd4b8db529c6")
 	)
-	(label "TRACK_LIGHTS_G"
-		(at 262.89 60.96 180)
+	(label "SWD_SWDIO"
+		(at 267.97 81.28 180)
 		(effects
 			(font
 				(size 1.1 1.1)
 			)
 			(justify right bottom)
 		)
-		(uuid "0b0f177a-ee4e-45a0-bd25-3dd97e8b6b7b")
+		(uuid "0bd2adcc-a0ed-4958-a503-eb0adc0767da")
 	)
 	(label "IO_POWER_RAIL_DATA"
 		(at 217.17 143.51 180)
@@ -3724,6 +3724,26 @@
 		)
 		(uuid "1182936a-eb6e-4864-a6ee-848534500f30")
 	)
+	(label "TRACK_LIGHTS_R"
+		(at 267.97 71.12 180)
+		(effects
+			(font
+				(size 1.1 1.1)
+			)
+			(justify right bottom)
+		)
+		(uuid "13da25ae-c08e-4262-8f9a-7b677b8788a3")
+	)
+	(label "IO_POWER_RAIL_INT"
+		(at 267.97 60.96 180)
+		(effects
+			(font
+				(size 1.1 1.1)
+			)
+			(justify right bottom)
+		)
+		(uuid "228073d0-0d03-4335-a529-7b3a8155edae")
+	)
 	(label "I2C_SDA"
 		(at 59.69 132.08 0)
 		(effects
@@ -3733,16 +3753,6 @@
 			(justify left bottom)
 		)
 		(uuid "2bd259da-53a7-4f68-8630-3c67d2218be4")
-	)
-	(label "IO_POWER_RAIL_DATA"
-		(at 267.97 68.58 180)
-		(effects
-			(font
-				(size 1.1 1.1)
-			)
-			(justify right bottom)
-		)
-		(uuid "2ec93908-d873-44fc-8fc2-7d6a22f59f68")
 	)
 	(label "VRAIL_CAP"
 		(at 49.53 68.58 0)
@@ -3774,25 +3784,15 @@
 		)
 		(uuid "4b7abcd8-71c2-435b-9861-7c0ecdbbcb8a")
 	)
-	(label "SWD_SWDIO"
-		(at 267.97 81.28 180)
+	(label "TRACK_LIGHTS_G"
+		(at 267.97 68.58 180)
 		(effects
 			(font
 				(size 1.1 1.1)
 			)
 			(justify right bottom)
 		)
-		(uuid "50b90cbb-58ff-40e6-8cac-df8d78741dd3")
-	)
-	(label "TRACK_LIGHTS_R"
-		(at 53.34 173.99 0)
-		(effects
-			(font
-				(size 1.1 1.1)
-			)
-			(justify left bottom)
-		)
-		(uuid "52b05f83-887e-4e00-85fe-119a140cdaa1")
+		(uuid "4c536046-c4f5-42d3-bdbd-e06ae1660179")
 	)
 	(label "SWD_NRST"
 		(at 187.96 101.6 180)
@@ -3804,6 +3804,16 @@
 		)
 		(uuid "552cdffb-2265-479c-a4c0-77e2d6dac9df")
 	)
+	(label "TRACK_LIGHTS_R"
+		(at 53.34 176.53 0)
+		(effects
+			(font
+				(size 1.1 1.1)
+			)
+			(justify left bottom)
+		)
+		(uuid "5d1aaf4b-af0d-4088-80f2-fdd88a39e6e5")
+	)
 	(label "START_LIGHTS"
 		(at 53.34 168.91 0)
 		(effects
@@ -3813,16 +3823,6 @@
 			(justify left bottom)
 		)
 		(uuid "5d8afda8-e885-44e3-8c84-8c0bc4c7f684")
-	)
-	(label "TRACK_LIGHTS_R"
-		(at 262.89 58.42 180)
-		(effects
-			(font
-				(size 1.1 1.1)
-			)
-			(justify right bottom)
-		)
-		(uuid "724ca0a8-b14c-47a3-a604-4091cf07b45a")
 	)
 	(label "SWD_SWCLK"
 		(at 267.97 83.82 180)
@@ -3845,7 +3845,7 @@
 		(uuid "865d70b1-a32f-44d1-bf3f-52e639ea68f6")
 	)
 	(label "START_LIGHTS"
-		(at 262.89 53.34 180)
+		(at 267.97 53.34 180)
 		(effects
 			(font
 				(size 1.1 1.1)
@@ -3854,7 +3854,7 @@
 		)
 		(uuid "95993899-6c90-4365-b594-50dc6daa6e40")
 	)
-	(label "IO_DATA_INT"
+	(label "IO_POWER_RAIL_INT"
 		(at 101.6 176.53 180)
 		(effects
 			(font
@@ -3904,6 +3904,16 @@
 		)
 		(uuid "be541cb0-6e86-4a67-b969-8a261ce03769")
 	)
+	(label "IO_POWER_RAIL_DATA"
+		(at 267.97 63.5 180)
+		(effects
+			(font
+				(size 1.1 1.1)
+			)
+			(justify right bottom)
+		)
+		(uuid "c8d6b4f3-6736-41ae-9a90-15e9cf0a3deb")
+	)
 	(label "SWD_SWCLK"
 		(at 187.96 96.52 180)
 		(effects
@@ -3914,25 +3924,15 @@
 		)
 		(uuid "dd7f2b8d-8c0f-41a0-8b15-bab84c722738")
 	)
-	(label "IO_DATA_INT"
-		(at 262.89 63.5 180)
-		(effects
-			(font
-				(size 1.1 1.1)
-			)
-			(justify right bottom)
-		)
-		(uuid "efdc5b51-990e-4c64-9d63-4c3d159dce4d")
-	)
 	(label "TRACK_LIGHTS_G"
-		(at 53.34 176.53 0)
+		(at 53.34 173.99 0)
 		(effects
 			(font
 				(size 1.1 1.1)
 			)
 			(justify left bottom)
 		)
-		(uuid "fae690d1-b5ee-4c9c-b9f3-061b7f99f1d2")
+		(uuid "f25481b8-c53f-49a3-9d9b-f54712fd5f5d")
 	)
 	(symbol
 		(lib_id "Device:C_Small")

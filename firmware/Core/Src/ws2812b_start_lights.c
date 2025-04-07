@@ -40,7 +40,7 @@ void start_lights_set_colour(uint8_t index, uint8_t r, uint8_t g, uint8_t b){
 	}
 }
 
-HAL_StatusTypeDef start_lights_update(){
+HAL_StatusTypeDef start_lights_refresh(){
 	// previous transfer completed
 
 	if ((START_LIGHTS_TIM->hdma[START_LIGHTS_TIM_CHANNEL]->State == HAL_DMA_STATE_READY) && !START_LIGHTS_DMA_CPLT_FLAG){

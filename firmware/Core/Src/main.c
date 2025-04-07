@@ -68,6 +68,7 @@ typedef struct {
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim14;
 TIM_HandleTypeDef htim17;
 DMA_HandleTypeDef hdma_tim1_up;
 
@@ -105,6 +106,7 @@ static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM17_Init(void);
+static void MX_TIM14_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -166,9 +168,14 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM3_Init();
   MX_TIM17_Init();
+  MX_TIM14_Init();
   /* USER CODE BEGIN 2 */
   start_lights_init(&htim1, TIM_CHANNEL_1, TIM_DIER_CC1DE);
   HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
+
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); // green
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // red
+
 
   // init manchester detect buffer
   for (int i = 0; i < TRACK_INT_BUF_LEN; i++)
@@ -311,6 +318,31 @@ int main(void)
 
 	  if (start_light_value.update_flag){
 	  		  start_light_value.update_flag = 0;
+
+	  		  /*
+	  		   * SET TRACK LIGHTS
+	  		   */
+	  		  uint8_t track_light_green = 0;
+	  		  uint8_t track_light_red = 0;
+
+	  		  if (race_state.curr == RACE_STATE_RED_FLAG)
+	  			  track_light_red = 100;
+
+	  		  if (race_state.curr == RACE_STATE_YELLOW_FLAG)
+	  			  if (start_light_value.yellow_flag){
+	  				  track_light_green = 100;
+	  				  track_light_red = 66;
+	  			  }
+
+	  		  if (start_light_value.green_flag)
+	  			  track_light_green = 100;
+
+	  		  TIM3->CCR1 = track_light_green;
+	  		  TIM3->CCR2 = track_light_red;
+
+	  		  /*
+	  		   * SET START LIGHT
+	  		   */
 	  		  if (start_light_value.yellow_flag)
 	  			  for (uint8_t ylight = 0; ylight < 10; ylight++)
 	  				  start_lights_set_colour(ylight, 80, 25 , 0);
@@ -341,7 +373,7 @@ int main(void)
 	  			  }
 	  		  }
 
-	  		dma_status_pwm = start_lights_update();
+	  		dma_status_pwm = start_lights_refresh();
 	  	  }
 
   }
@@ -486,7 +518,7 @@ static void MX_TIM3_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_IC_InitTypeDef sConfigIC = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM3_Init 1 */
 
@@ -506,7 +538,7 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -516,17 +548,67 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
-  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
+
+}
+
+/**
+  * @brief TIM14 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM14_Init(void)
+{
+
+  /* USER CODE BEGIN TIM14_Init 0 */
+
+  /* USER CODE END TIM14_Init 0 */
+
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM14_Init 1 */
+
+  /* USER CODE END TIM14_Init 1 */
+  htim14.Instance = TIM14;
+  htim14.Init.Prescaler = 48-1;
+  htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim14.Init.Period = 65535;
+  htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim14) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim14, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM14_Init 2 */
+
+  /* USER CODE END TIM14_Init 2 */
 
 }
 
@@ -593,14 +675,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, TRACK_LIGHTS_R_Pin|TRACK_LIGHTS_G_Pin|IO_DATA_INT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(IO_POWER_RAIL_INT_GPIO_Port, IO_POWER_RAIL_INT_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : TRACK_LIGHTS_R_Pin TRACK_LIGHTS_G_Pin IO_DATA_INT_Pin */
-  GPIO_InitStruct.Pin = TRACK_LIGHTS_R_Pin|TRACK_LIGHTS_G_Pin|IO_DATA_INT_Pin;
+  /*Configure GPIO pin : IO_POWER_RAIL_INT_Pin */
+  GPIO_InitStruct.Pin = IO_POWER_RAIL_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(IO_POWER_RAIL_INT_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -608,7 +690,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
-	if (htim->Instance == TIM3){
+	if (htim->Instance == TIM14){
 		uint16_t counterValue = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 		uint16_t debounceCheck = counterValue - track_data_previous_counter_value;
 		if (debounceCheck > TRACK_INT_DEBOUNCE){
