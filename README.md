@@ -1,3 +1,5 @@
+# FastLapLights
+
 **"Gentlemen, start your engines!"** 🏁  
 
 Bring FIA-style lighting to your slot car track with this high-tech lighting system! Featuring WS2812B Start & Pit Lane Lights, RGB Track Flags, and I2C Data Handling! 
@@ -5,6 +7,10 @@ Bring FIA-style lighting to your slot car track with this high-tech lighting sys
 Following Models are supported:
 - Carrera Digital 124
 - Carrera Digital 132
+
+Preview:  
+![](https://github.com/philippmichaelkrebs/FastLapLights/blob/main/images/signal_start_proc_start_light.gif?raw=true)
+
 
 # Features
 
@@ -46,6 +52,10 @@ So we got:
 7. Accelerator pedal position of car with ID
 8. Number of light were lit on the starting lights. If the lights out, the race begin
 9. Total reset
+
+## Documentation
+- [How the Lights Work](../docs/how_the_lights_work.md)
+- [Getting Started](../docs/getting_started.md)
 
 # Contribute & Support
 
