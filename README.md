@@ -54,8 +54,8 @@ So we got:
 9. Total reset
 
 ## Documentation
-- [How the Lights Work](../docs/how_the_lights_work.md)
-- [Getting Started](../docs/getting_started.md)
+- [How the Lights Work](/docs/how_the_lights_work.md)
+- [Getting Started](/docs/getting_started.md)
 
 # Contribute & Support
 
