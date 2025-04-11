@@ -36,6 +36,15 @@ The control unit sends a **reset** followed by a **5x red light** signal. If the
 - **Pit Lane**: Red light ON – pit lane is closed.  
 - **Track Lights**: All lights RED – red flag signal.
 
+### How The Start Light Looks
+ 
+![](https://github.com/philippmichaelkrebs/FastLapLights/blob/main/images/signal_red_flag_start_light.gif?raw=true)
+
+### How The Track Light Looks
+ 
+![](https://github.com/philippmichaelkrebs/FastLapLights/blob/main/images/signal_red_flag_track.gif?raw=true)
+
+
 ---
 
 ## 🟨 Yellow Flag / Safety Car Phase
@@ -49,6 +58,14 @@ You trigger this phase by pressing the **Safety Car button**.
 - **Start Light**: Yellow lights BLINK at 5 Hz.  
 - **Pit Lane**: Green light ON – pit lane is open.  
 - **Track Lights**: Yellow lights BLINK at 5 Hz.
+
+### How The Start Light Looks
+ 
+![](https://github.com/philippmichaelkrebs/FastLapLights/blob/main/images/signal_yellow_flag_start_light.gif?raw=true)
+
+### How The Track Light Looks
+ 
+![](https://github.com/philippmichaelkrebs/FastLapLights/blob/main/images/signal_yellow_flag_track.gif?raw=true)
 
 ---
 
@@ -76,6 +93,10 @@ Pressing the **Start button** during a red flag triggers the official **start se
 - **Pit Lane**: Red light ON during countdown; turns green at race start.  
 - **Track Lights**: All OFF – the track is considered ready.
 
+### How The Start Light Looks
+ 
+![](https://github.com/philippmichaelkrebs/FastLapLights/blob/main/images/signal_start_proc_start_light.gif?raw=true)
+
 ---
 
 ## 🚫 Jump Start
@@ -87,3 +108,7 @@ If a car jumps the start by hitting the throttle before the lights go out, it’
 - **Start Light**: Red lights stay ON; Yellow lights FLASH at 1 Hz.  
 - **Pit Lane**: Red light ON – pit lane closed.  
 - **Track Lights**: All OFF – track assumed clear.
+
+### How The Start Light Looks
+ 
+![](https://github.com/philippmichaelkrebs/FastLapLights/blob/main/images/signal_jump_start.gif?raw=true)
