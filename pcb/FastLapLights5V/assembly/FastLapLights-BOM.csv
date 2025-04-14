@@ -1,4 +1,4 @@
-Designator,Comment,Footprint,LCSC
+"Designator","Comment","Footprint","LCSC"
 "C1,C10,C11","4.7uF","Capacitor_SMD:C_0603_1608Metric"," C1705"
 "C2,C5,C6,C7,C12","0.1uF","Capacitor_SMD:C_0603_1608Metric","C1591"
 "C3","220uF","Library:CP_220_Honor_Elec_HV1E227M0810PZ","C5246542"
@@ -7,7 +7,7 @@ Designator,Comment,Footprint,LCSC
 "D1","MBR0540","Diode_SMD:D_SOD-123","C236080"
 "IC1","74HCT1G125GV,125","Library:SOT95P275X110-5N","C12502"
 "L1","22uH","Library:L_Chilisin_Elec_BPSC00101140220M00","C5201662"
-"R1,R2","4k7","Resistor_SMD:R_0603_1608Metric","C99782"
+"R2","4k7","Resistor_SMD:R_0603_1608Metric","C99782"
 "R3","1k","Resistor_SMD:R_0603_1608Metric","C22548"
 "U1","STM32C011F4Px","Package_SO:TSSOP-20_4.4x6.5mm_P0.65mm","C5452432"
 "U2","AP63205WU","Package_TO_SOT_SMD:TSOT-23-6","C2071056"
