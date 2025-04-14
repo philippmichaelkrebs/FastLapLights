@@ -5,17 +5,17 @@
       "Application": "Pcbnew",
       "Version": "8.0.9-8.0.9-0~ubuntu24.04.1"
     },
-    "CreationDate": "2025-04-13T18:37:50+02:00"
+    "CreationDate": "2025-04-14T20:38:36+02:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
       "Name": "FastLapLights5V",
       "GUID": "46617374-4c61-4704-9c69-676874733556",
-      "Revision": "MK4"
+      "Revision": "MK6"
     },
     "Size": {
-      "X": 27.35,
-      "Y": 40.05
+      "X": 25.05,
+      "Y": 39.25
     },
     "LayerNumber": 4,
     "BoardThickness": 1.6,
