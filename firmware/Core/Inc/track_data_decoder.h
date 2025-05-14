@@ -24,10 +24,10 @@ typedef enum {
 	CU_CONTROLLER_JUMPSTART
 } CuDataType;
 
+
 typedef struct
 {
 	uint16_t chunk;
-	uint8_t size;
 	CuDataType type;
 	uint16_t value;
 } CuMessage;
@@ -37,6 +37,4 @@ static const uint16_t CAR_DATA = 			0b0000001000000000;
 static const uint16_t STARTING_LIGHT_MASK = 0b0001000000001111;
 static const uint16_t SAFETY_CAR_MASK = 	0b0000001111000000;
 
-CuMessage decodeManchester(const int32_t *interrupts, uint32_t size);
-
-#endif /* INC_TRACK_DATA_DECODER_H_ */
+#endif /* INC_MANCHESTER_H_ */

@@ -1,12 +1,12 @@
 %TF.GenerationSoftware,KiCad,Pcbnew,8.0.9-8.0.9-0~ubuntu24.04.1*%
-%TF.CreationDate,2025-04-14T22:12:55+02:00*%
+%TF.CreationDate,2025-05-14T18:23:07+02:00*%
 %TF.ProjectId,FastLapLights5V,46617374-4c61-4704-9c69-676874733556,MK6*%
 %TF.SameCoordinates,Original*%
 %TF.FileFunction,Soldermask,Bot*%
 %TF.FilePolarity,Negative*%
 %FSLAX46Y46*%
 G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
-G04 Created by KiCad (PCBNEW 8.0.9-8.0.9-0~ubuntu24.04.1) date 2025-04-14 22:12:55*
+G04 Created by KiCad (PCBNEW 8.0.9-8.0.9-0~ubuntu24.04.1) date 2025-05-14 18:23:07*
 %MOMM*%
 %LPD*%
 G01*
@@ -21,8 +21,8 @@ $1*%
 G04 Aperture macros list end*
 %ADD10R,1.700000X1.700000*%
 %ADD11O,1.700000X1.700000*%
-%ADD12FreePoly0,180.000000*%
-%ADD13FreePoly1,180.000000*%
+%ADD12FreePoly0,0.000000*%
+%ADD13FreePoly1,0.000000*%
 G04 APERTURE END LIST*
 D10*
 %TO.C,J4*%
@@ -60,8 +60,8 @@ X63450000Y-113990000D03*
 %TD*%
 D12*
 %TO.C,JP1*%
-X62550000Y-124100000D03*
-D13*
 X61250000Y-124100000D03*
+D13*
+X62550000Y-124100000D03*
 %TD*%
 M02*
