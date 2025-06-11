@@ -17,7 +17,7 @@ Preview:
 - Start Lights: Perfect race countdown sequence with WS2812B LEDs 🚦
 - Pit Lane Lights: Manage pit stops like a real motorsport pro
 - Track Flag System: RGB LEDs indicate race conditions (Green, Yellow, Red, Blue) 🚥
-- Real-Time Data Capture: I2C interface collects race data via track interrupts 
+- Real-Time Data Capture: UART interface collects race data via track interrupts 
 - Customizable & Expandable: Tweak lights, colors, and behavior for your track setup! 
 
 # Get Started
@@ -25,7 +25,6 @@ Preview:
 - Order the microcontroller from jlcpcb
 - Flash the firmware on your STM32 microcontroller
 - Connect WS2812B & RGB LEDs according to the purpose.
-- Plug in I2C Sensors for track data (optional but cool 😎).
 - Solder power wires to the track
 - Power up & lights out!
 
@@ -35,7 +34,10 @@ Preview:
 - Start Lights: Uses WS2812B LEDs to signal the race start countdown.
 - Pit Lane Signals: Indicate pit status, access control, and penalties.
 - Track Flags: RGB LEDs for race status (Green: go, Yellow: caution, Red: stop).
-- I2C Data Handling: Reads digital track data from interrupts, perfect for lap timing & automation.
+- UART interface: Reads and Sends digital track data, perfect for lap timing & automation.
+
+# Pinouts
+![](https://github.com/philippmichaelkrebs/FastLapLights/blob/main/images/pcb_pinout_lq.jpg?raw=true)
 
 # CU Data
 The data that is transmitted by the cu is an asynchronous serial protocol. The chunks are of various size. We got no stop bit. But fortunetly the messages are of different size by at least 2 bits. Accordingly to this behaviour it's sufficient to listen only to the falling edges. If the message size is between two known message types, we ceil the size by adding a 0 to the end of the message.

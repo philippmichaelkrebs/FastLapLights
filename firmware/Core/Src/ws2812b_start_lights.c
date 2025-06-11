@@ -40,14 +40,14 @@ void start_lights_set_colour(uint8_t index, uint8_t r, uint8_t g, uint8_t b){
 	}
 }
 
-HAL_StatusTypeDef start_lights_refresh(){
+HAL_StatusTypeDef start_lights_refresh(TIM_HandleTypeDef *htim){
 	// previous transfer completed
 
-	if ((START_LIGHTS_TIM->hdma[START_LIGHTS_TIM_CHANNEL]->State == HAL_DMA_STATE_READY) && !START_LIGHTS_DMA_CPLT_FLAG){
+	/*if ((START_LIGHTS_TIM->hdma[START_LIGHTS_TIM_CHANNEL]->State == HAL_DMA_STATE_READY) && !START_LIGHTS_DMA_CPLT_FLAG){
 		return START_LIGHTS_TIM->hdma[START_LIGHTS_TIM_CHANNEL]->State;
-	}
+	}*/
 
-	uint16_t bufIdx = 1; // start by one to let dma start properly
+	uint16_t bufIdx = 10; // start by one to let dma start properly
 	for (uint16_t led = 0; led < START_LIGHTS; led++) {
 			uint8_t *lds = (uint8_t *)&START_LIGHTS_DATA[led];
 			// g, r, b - MSB
@@ -57,7 +57,7 @@ HAL_StatusTypeDef start_lights_refresh(){
 							(lds[byte] & (1 << bit)) ? WS2812B_T1H : WS2812B_T0H;
 		}
 
-	HAL_StatusTypeDef halStatus = HAL_TIM_PWM_Start_DMA(START_LIGHTS_TIM, START_LIGHTS_TIM_CHANNEL, (uint32_t *) START_LIGHTS_DMA_BUF, START_LIGHTS_DMA_BUF_LEN);
+	HAL_StatusTypeDef halStatus = HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_1, (uint32_t *) START_LIGHTS_DMA_BUF, START_LIGHTS_DMA_BUF_LEN);
 
 	if (HAL_OK == halStatus)
 		START_LIGHTS_DMA_CPLT_FLAG = 0;
@@ -92,10 +92,10 @@ void start_lights_dma_callback(){
 	 */
 
 	// Enable the update request DMA event
-	SET_BIT(START_LIGHTS_TIM->Instance->DIER, TIM_DIER_UDE);
+	//SET_BIT(START_LIGHTS_TIM->Instance->DIER, TIM_DIER_UDE);
 
 	// Disable capture/compare DMA event
-	CLEAR_BIT(START_LIGHTS_TIM->Instance->DIER, START_LIGHTS_TIM_DIER_CCxDE);
+	//CLEAR_BIT(START_LIGHTS_TIM->Instance->DIER, START_LIGHTS_TIM_DIER_CCxDE);
 
 	// set clearance for dma
 	START_LIGHTS_DMA_CPLT_FLAG = 1;

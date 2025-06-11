@@ -8,8 +8,8 @@
 #ifndef INC_WS2812B_H_
 #define INC_WS2812B_H_
 
-#define WS2812B_T0H 			19 // 0.4us
-#define WS2812B_T1H				38//38 // 0.8us
+#define WS2812B_T0H 			1 	// 0.4us
+#define WS2812B_T1H				2	// 0.8us
 #define WS2812B_RES_PERIOD		300 // gt 40 cycls or above 50us
 #define WS2812B_LED_BITS		24U // Composition: G7, G6, .. , G0, R7, ... , R0, B7, ..., B0
 

@@ -546,23 +546,6 @@
         "line_style": 0,
         "microvia_diameter": 0.3,
         "microvia_drill": 0.1,
-        "name": "I2C",
-        "pcb_color": "rgb(55, 201, 65)",
-        "schematic_color": "rgba(0, 0, 0, 0.000)",
-        "track_width": 0.2,
-        "via_diameter": 0.6,
-        "via_drill": 0.3,
-        "wire_width": 6
-      },
-      {
-        "bus_width": 12,
-        "clearance": 0.2,
-        "diff_pair_gap": 0.25,
-        "diff_pair_via_gap": 0.25,
-        "diff_pair_width": 0.2,
-        "line_style": 0,
-        "microvia_diameter": 0.3,
-        "microvia_drill": 0.1,
         "name": "INT",
         "pcb_color": "rgb(159, 0, 255)",
         "schematic_color": "rgba(0, 0, 0, 0.000)",
@@ -614,8 +597,42 @@
         "line_style": 0,
         "microvia_diameter": 0.3,
         "microvia_drill": 0.1,
+        "name": "SJUMPER",
+        "pcb_color": "rgb(10, 167, 255)",
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.2,
+        "via_diameter": 0.6,
+        "via_drill": 0.3,
+        "wire_width": 6
+      },
+      {
+        "bus_width": 12,
+        "clearance": 0.2,
+        "diff_pair_gap": 0.25,
+        "diff_pair_via_gap": 0.25,
+        "diff_pair_width": 0.2,
+        "line_style": 0,
+        "microvia_diameter": 0.3,
+        "microvia_drill": 0.1,
         "name": "SWD",
         "pcb_color": "rgb(100, 161, 153)",
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.2,
+        "via_diameter": 0.6,
+        "via_drill": 0.3,
+        "wire_width": 6
+      },
+      {
+        "bus_width": 12,
+        "clearance": 0.2,
+        "diff_pair_gap": 0.25,
+        "diff_pair_via_gap": 0.25,
+        "diff_pair_width": 0.2,
+        "line_style": 0,
+        "microvia_diameter": 0.3,
+        "microvia_drill": 0.1,
+        "name": "UART",
+        "pcb_color": "rgb(0, 195, 44)",
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.2,
         "via_diameter": 0.6,
@@ -664,8 +681,8 @@
         "pattern": "/BUCK*"
       },
       {
-        "netclass": "I2C",
-        "pattern": "/I2C*"
+        "netclass": "UART",
+        "pattern": "/UART*"
       },
       {
         "netclass": "IO",
@@ -686,6 +703,14 @@
       {
         "netclass": "LIGHTS",
         "pattern": "/*_LIGHTS*"
+      },
+      {
+        "netclass": "SJUMPER",
+        "pattern": "/SJ*"
+      },
+      {
+        "netclass": "SJUMPER",
+        "pattern": "/SW_*"
       }
     ]
   },
