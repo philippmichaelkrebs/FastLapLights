@@ -57,10 +57,11 @@ HAL_StatusTypeDef start_lights_refresh(TIM_HandleTypeDef *htim){
 							(lds[byte] & (1 << bit)) ? WS2812B_T1H : WS2812B_T0H;
 		}
 
+	//HAL_StatusTypeDef halStatus= HAL_OK;
 	HAL_StatusTypeDef halStatus = HAL_TIM_PWM_Start_DMA(htim, TIM_CHANNEL_1, (uint32_t *) START_LIGHTS_DMA_BUF, START_LIGHTS_DMA_BUF_LEN);
 
-	if (HAL_OK == halStatus)
-		START_LIGHTS_DMA_CPLT_FLAG = 0;
+	/*if (HAL_OK == halStatus)
+		START_LIGHTS_DMA_CPLT_FLAG = 0;*/
 
 	return halStatus;
 }

@@ -52,6 +52,12 @@ typedef enum {
 	RACE_STATE_OPEN
 } RaceState;
 
+typedef enum {
+	UART_TX_BUFFER_FULL,
+	UART_TX_BUFFER_TIMEOUT,
+	UART_TX_FORCE
+} UartTxTransmitReason;
+
 typedef struct {
 	RaceState curr;
 	RaceState prev;
@@ -76,11 +82,31 @@ typedef struct {
 	uint16_t first_rising;
 	uint16_t data;
 } ManchesterDecoder;
+
+typedef struct {
+	uint8_t fuel;
+	uint8_t position;
+	uint8_t finished;
+	uint8_t laps;
+} DriverData;
+
+typedef struct {
+	DriverData 	driver_data[6];
+	uint8_t		fastest_lap_driver;
+	uint8_t		start_lights;
+	uint8_t		lap_count;
+	uint8_t		lap_count_nibble_completed;
+	uint8_t		reset_event;
+	RaceState	race_state;
+	SessionType	session_type;
+} RaceInfo;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define CIRC_BUF_LEN       	8U
+#define UART_TX_BUF_LEN		(32U) //32U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -95,43 +121,76 @@ TIM_HandleTypeDef htim16;
 DMA_HandleTypeDef hdma_tim16_ch1;
 
 UART_HandleTypeDef huart1;
-DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
-uint32_t millis_sync = 0;
-uint32_t millis_sync_prev = 0;
-uint16_t millis_sync_state_change_flag = 0;
+uint32_t 			millis_sync = 0;
+uint32_t 			millis_sync_prev = 0;
+uint16_t 			millis_sync_state_change_flag = 0;
 
 // manchester decoder
-volatile ManchesterDecoder data_manchester[CIRC_BUF_LEN] = {0};
-volatile uint16_t data_manchester_circular_index = 0;
-volatile uint16_t data_manchester_circular_read_index = 0;
-uint16_t difference_rw = 0;
-volatile uint16_t track_data_available = 0;
-uint32_t odd_value = 0;
-uint16_t message_to_proceed = 0;
+volatile ManchesterDecoder 	data_manchester[CIRC_BUF_LEN] = {0};
+volatile uint16_t 			data_manchester_circular_index = 0;
+volatile uint16_t 			data_manchester_circular_read_index = 0;
+uint16_t 					difference_rw = 0;
+volatile uint16_t 			track_data_available = 0;
+uint32_t 					odd_value = 0;
+uint16_t 					message_to_proceed = 0;
 
 // race state
-RaceStateHistory race_state = {RACE_STATE_STARTUP, RACE_STATE_STARTUP};
-StartLightValue start_light_value = {0};
-uint8_t safetycar_debounce = 0; // neccessary because of ghost car messages
-uint32_t green_flag_triggered_time = 0;
-uint32_t safetycar_flash_interval = 0;
-uint32_t green_flag_millis_flash = 0;
-uint32_t jump_start_millis_flash = 0;
+RaceStateHistory 	race_state = {RACE_STATE_STARTUP, RACE_STATE_STARTUP};
+StartLightValue 	start_light_value = {0};
+uint8_t 			safetycar_debounce = 0; // neccessary because of ghost car messages
+uint32_t 			green_flag_triggered_time = 0;
+uint32_t 			safetycar_flash_interval = 0;
+uint32_t 			green_flag_millis_flash = 0;
+uint32_t 			jump_start_millis_flash = 0;
 
-LightMode light_mode = START_LIGHT_MODE;
+LightMode 			light_mode = START_LIGHT_MODE;
 StartLightAlignment start_light_alignment = ALIGNMENT_HORIZONTAL;
-SessionType session_type = RACE;
+SessionType 		session_type = RACE;
+//uint8_t 			startupState = 0;
+uint32_t 			start_light_change_time = 0;
+HAL_StatusTypeDef 	dma_status_pwm = HAL_OK;
 
-HAL_StatusTypeDef dma_status_pwm = HAL_OK;
-uint8_t startupState = 0;
-uint32_t start_light_change_time = 0;
+// driver data
+DriverData			driver_data[6]								= {0};
 
+// uart
+static 	 uint8_t	uart_tx_buffer[UART_TX_BUF_LEN] 			;
+uint32_t 			uart_tx_last_transmit						= 0;
+uint8_t				uart_tx_counter								= 0;
+HAL_StatusTypeDef 	uart_status_pwm 							= HAL_OK;
+/*
+ * 0x01 - race state
+ * 0x02 - driver data (fuel, laps, position)
+ * 0x04 - start lights
+ * 0x08 - reset
+ * 0x10 - race finished
+ * 0x20 - new fastest lap
+ * 0x40 - session type (race, practice)
+ */
 
-volatile uint16_t difference_channel2 = 0;
-volatile uint16_t last_rising = 0;
+volatile RaceInfo	uart_race_info = {
+						.driver_data = {
+							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 }
+						},
+						.fastest_lap_driver = 0xFF,       // 0xFF no fastest lap yet
+						.start_lights = 0,
+						.lap_count = 0,
+						.lap_count_nibble_completed = 1,
+						.reset_event = 0,
+						.race_state = RACE_STATE_STARTUP,
+						.session_type = RACE
+					};
+
+volatile uint16_t 	difference_channel2 = 0;
+volatile uint16_t 	last_rising = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -148,6 +207,10 @@ CuMessage decode_manchester(uint16_t message);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/*
+ * circular buffer methods - manchester decoder
+ */
 
 /*static inline uint16_t circ_index(uint16_t i) {
 	return i % CIRC_BUF_LEN;
@@ -168,12 +231,18 @@ static inline uint16_t circ_distance(uint16_t from, uint16_t to) {
 static inline void update_race_state(RaceStateHistory *stateHistory, RaceState newState) {
 	stateHistory->prev = stateHistory->curr;
 	stateHistory->curr = newState;
+	uart_race_info.race_state = newState;
 }
+
+/*
+ * update functions
+ */
 
 static inline void update_start_light_value_red(StartLightValue *startLightValue, uint8_t newValue) {
 	startLightValue->red_count = newValue;
 	startLightValue->red_count_prev = startLightValue->red_count;
 	startLightValue->update_flag = 1;
+	uart_race_info.start_lights = newValue;
 }
 static inline void update_start_light_value_green(StartLightValue *startLightValue, uint8_t newValue) {
 	startLightValue->green_flag = newValue;
@@ -222,21 +291,29 @@ int main(void)
   MX_TIM16_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  //HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+
+	// init ws2812b
 	HAL_TIM_PWM_MspInit(&htim16);
 	dma_status_pwm = start_lights_init(&htim16, TIM_CHANNEL_1, TIM_DIER_CC1DE);
 
+	// init track interrupt
 	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3); //
 	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4); //
 
+	// init light behavior
 	light_mode = HAL_GPIO_ReadPin(GPIOA, LIGHT_MODE_SJ_Pin) == 1 ? START_LIGHT_MODE : PIT_LANE_LIGHT_MODE;
 	start_light_alignment = HAL_GPIO_ReadPin(START_LIGHT_ALIGNMENT_GPIO_Port, START_LIGHT_ALIGNMENT_Pin) == 1 ?
 			ALIGNMENT_HORIZONTAL : ALIGNMENT_VERTICAL;
 	session_type = HAL_GPIO_ReadPin(RACE_TRAINING_SESSION_SW_GPIO_Port, RACE_TRAINING_SESSION_SW_Pin) == 0 ? RACE : QUALIFYING_TRAINING;
+	uart_race_info.session_type = session_type;
 
+	// init track lights
 	HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1); // red
 	TIM14->CCR1 = 0;//80;
 	HAL_GPIO_WritePin(TRACK_GREEN_GPIO_Port, TRACK_GREEN_Pin, GPIO_PIN_RESET);
+
+	  //HAL_UART_Receive_DMA(&huart1, uart_rx_buffer, UART_TX_BUF_LEN);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -247,6 +324,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+		// BLOCK 1 - DECODE MANCHESTER DATA
 		difference_rw = circ_distance(data_manchester_circular_read_index, data_manchester_circular_index);
 		if (3 < difference_rw){
 			uint16_t read_to = data_manchester_circular_index;
@@ -286,18 +364,89 @@ int main(void)
 						}
 					}
 				} else if ((data_manchester[read_index].data > 4096-1) && (data_manchester[read_index].data < 8192)){
-					  // control unit message
-					  millis_sync++; // message block repeats every 75ms - todo: switch state changes and blinks to events
+					// control unit message
+					millis_sync++; // message block repeats every 75ms
 
-					if ((((0x000F << 8) & data_manchester[read_index].data) == (0x001 << 11)) && ((0x000D << 4) & data_manchester[read_index].data)){
+					uint16_t encode_signal = data_manchester[read_index].data;
+					uint8_t controller =
+							((encode_signal >> 0) & 0x01) << 2 |
+							((encode_signal >> 1) & 0x01) << 1 |
+							((encode_signal >> 2) & 0x01) << 0;
+
+					uint8_t command =
+							((encode_signal >> 3) & 0x01) << 4 |
+							((encode_signal >> 4) & 0x01) << 3 |
+							((encode_signal >> 5) & 0x01) << 2 |
+							((encode_signal >> 6) & 0x01) << 1 |
+							((encode_signal >> 7) & 0x01) << 0;
+
+					uint8_t value =
+							((encode_signal >> 8) & 0x01) << 3 |
+							((encode_signal >> 9) & 0x01) << 2 |
+							((encode_signal >> 10) & 0x01) << 1 |
+							((encode_signal >> 11) & 0x01) << 0;
+
+					if ((11 == command) && (1 == value)){
 						// jump start
 						message_to_proceed = data_manchester[read_index].data;
-					} else if (((0x0001 << 3) & data_manchester[read_index].data) && (0x0007 & data_manchester[read_index].data)){
+					} else if ((16 == command) && (7 == controller)){
 						// start light
 						message_to_proceed = data_manchester[read_index].data;
-					}
+					} else {
+						// catch unprocessed cu data for uart
 
-				}
+						// unfortunately we have to go through various if statements.
+						if ((6 > controller) && !(0 == command)){
+							// things we never ever want to proceed
+							if (4 == command){
+								if (8 > value){
+									// fuel level of car - 7 is full
+									uart_race_info.driver_data[controller].fuel = value;
+								} else if (16 > value){
+									// not really neccessary. Called at jump start
+									uart_race_info.driver_data[controller].fuel = value - 8;
+								}
+							}else if (6 == command){
+								if (value < 9){
+									// postition
+									value--; // position -1 to fit in 4 bits
+									uart_race_info.driver_data[controller].position = value;
+								} else if (9 == value) {
+									// reset lap counter and positions
+									uart_race_info.reset_event = 1;
+									uart_race_info.lap_count = 0;
+									for (uint8_t _cntrl = 0; _cntrl < 6; _cntrl++){
+										uart_race_info.driver_data[controller].finished = 0;
+										uart_race_info.driver_data[controller].position = 0;
+										uart_race_info.driver_data[controller].fuel = 0;
+										uart_race_info.driver_data[controller].laps = 0;
+									}
+								}
+							} else if (7 == command){
+								// driver finishes race
+								uart_race_info.driver_data[controller].finished = 1;
+							} else if (8 == command){
+								// driver finishes lap / race with new fastest lap
+								uart_race_info.fastest_lap_driver = controller;
+								uart_race_info.driver_data[controller].laps++;
+							} else if (9 == command){
+								// driver finishes lap / race wiout new fastest lap
+								uart_race_info.driver_data[controller].laps++;
+							} else if ((10 == command) && (8 > value)){
+								// fuel level of car - 7 is full
+								uart_race_info.driver_data[controller].fuel = value;
+							}
+						} else if ((17 == command) && (7 == controller)){
+							// first nibble lap count leader
+							uart_race_info.lap_count = value << 4;
+							uart_race_info.lap_count_nibble_completed = 0;
+						} else if ((18 == command) && (7 == controller)){
+							// first nibble lap count leader
+							uart_race_info.lap_count |= value;
+							uart_race_info.lap_count_nibble_completed = 1;
+						}
+					} // catch unprocessed cu data for uart end
+				} // control unit message end
 
 				if (message_to_proceed > 0)
 					track_data_available = 1;
@@ -307,6 +456,7 @@ int main(void)
 			data_manchester_circular_read_index = read_index;
 		}
 
+		// BLOCK 2 - PROCESS ALTERNATING PROCESSES
 
 		/*
 		 * Use control unit message interval as clock (kind of synchronization pulse)
@@ -318,6 +468,47 @@ int main(void)
 		 */
 		millis_sync_state_change_flag = millis_sync_prev != millis_sync ? 1 : 0;
 		millis_sync_prev = millis_sync;
+
+		// do some stuff with 1.3 Hz (750ms)
+		if ((9 < millis_sync - uart_tx_last_transmit) && (1 == millis_sync_state_change_flag)){
+			/*
+			 * Read Race State
+			 */
+			session_type = HAL_GPIO_ReadPin(RACE_TRAINING_SESSION_SW_GPIO_Port, RACE_TRAINING_SESSION_SW_Pin) == 0 ? RACE : QUALIFYING_TRAINING;
+			uart_race_info.session_type = session_type;
+
+
+			/*
+			 * Transmit race state info
+			 */
+			uint8_t write_index = 0;
+			for (uint8_t _driver = 0; _driver < 6; _driver++){
+				uart_tx_buffer[write_index++] = 0x00 | uart_race_info.driver_data[_driver].position;
+				uart_tx_buffer[write_index++] = 0x00 | uart_race_info.driver_data[_driver].fuel;
+				uart_tx_buffer[write_index++] = 0x00 | uart_race_info.driver_data[_driver].laps;
+				uart_tx_buffer[write_index++] = 0x00 | uart_race_info.driver_data[_driver].finished;
+			}
+
+			uart_tx_buffer[write_index++] = 0x00 | uart_race_info.fastest_lap_driver;
+			uart_tx_buffer[write_index++] = 0x00 | uart_race_info.start_lights;
+			uart_tx_buffer[write_index++] = 0x00 | uart_race_info.lap_count;
+			uart_tx_buffer[write_index++] = 0x00 | uart_race_info.reset_event;
+			uart_tx_buffer[write_index++] = 0x00 | uart_race_info.race_state;
+			uart_tx_buffer[write_index++] = 0x00 | uart_race_info.session_type;
+
+			uart_tx_buffer[write_index++] = (0xFF00 & millis_sync) >> 8;
+			uart_tx_buffer[write_index++] = (0x00FF & millis_sync);
+
+
+			// set usart clearance because we dont use usart isr
+			huart1.gState = HAL_UART_STATE_READY;
+			uart_status_pwm = HAL_UART_Transmit_DMA(&huart1, uart_tx_buffer, UART_TX_BUF_LEN);
+
+			// reset track reset event
+			uart_race_info.reset_event = 0;
+		}
+
+		// BLOCK 3 - PROCESS THE MESSAGES THAT CONTROLS THE LIGHTS
 
 		/*
 		 * Process the messages
@@ -450,6 +641,8 @@ int main(void)
 					update_start_light_value_yellow(&start_light_value, 0);
 			}
 		}
+
+		// BLOCK 4 - SET THE LIGHS
 
 		/*
 		 * state changes come with changes to the traffic lights
@@ -830,7 +1023,7 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.Mode = UART_MODE_TX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
@@ -934,6 +1127,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 				data_manchester[data_manchester_circular_index].gap = (uint16_t)(cnt - data_manchester[data_manchester_circular_index].last_rising);
 				data_manchester[data_manchester_circular_index].message_started = 0;
 				data_manchester[data_manchester_circular_index].data = 0;
+				data_manchester[data_manchester_circular_index].first_rising = cnt;
 			}
 
 			if (difference_channel2 > 10){ // 15.625 us
@@ -984,7 +1178,6 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim){
 		start_lights_dma_callback();
 }
 
-
 CuMessage decode_manchester(uint16_t message){
 	CuMessage msg;
 	msg.value = 0;
@@ -1015,6 +1208,7 @@ CuMessage decode_manchester(uint16_t message){
 	}
 	return msg;
 }
+
 /* USER CODE END 4 */
 
 /**
