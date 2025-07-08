@@ -3,7 +3,7 @@
 **"Gentlemen, start your engines!"** 🏁  
 
 Bring FIA-style lighting to your slot car track with FastLapLights - a high-tech lighting and telemetry system for Carrera Digital tracks! 
-Control WS2812b Start Lights, Pit Lane Lights and Track Flags with stunning LED animations that bring your races to life. Want more? FastLapLights als taps into the real-time data stream from the Carrera Control Unit, filters the most relevant messages, and outputs the via UART - perfect for powering external displays, mechanical 7-segment position towers, or even fuel and pit-stop management systems. 
+Control WS2812b Start Lights, Pit Lane Lights and Track Flags with stunning LED animations that bring your races to life. Want more? FastLapLights als taps into the real-time data stream from the Carrera Control Unit, filters the most relevant messages, and outputs the via UART - perfect for powering external displays, mechanical 7-segment scoring pylons, or even fuel and pit-stop management systems. 
 With support for 3.3V and 5V output, you've got everything you need to bring custom hardware into the mix.
 Whether you're racing for fun or building the ultimate home track, FastLapLights adds a whole new level of immersion, control and creativity.
 
@@ -41,7 +41,7 @@ If you plan to use multiple RGB LEDs, you should use a mosfet to avoid overloadi
 Tap into live control unit telemetry!
 
 The STM32 continuously processes data from the Carrera Control Unit. A filtered stream of the most relevant messages is available via the UART interface. This gives you a powerful foundation to build custom applications and add unique behavior to your racetrack setup. 
-Whether it's a mechanical 7-segment position tower or a smart pit stop prediction system, FastLapLights gives your cicuit the edge it deserves.
+Whether it's a mechanical 7-segment scoring pylon or a smart pit stop prediction system, FastLapLights gives your cicuit the edge it deserves.
 
 # Get Started
 
