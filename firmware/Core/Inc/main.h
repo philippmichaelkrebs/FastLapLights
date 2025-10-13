@@ -28,6 +28,17 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32c0xx_hal.h"
+#include "stm32c0xx_ll_tim.h"
+#include "stm32c0xx_ll_bus.h"
+#include "stm32c0xx_ll_cortex.h"
+#include "stm32c0xx_ll_rcc.h"
+#include "stm32c0xx_ll_system.h"
+#include "stm32c0xx_ll_utils.h"
+#include "stm32c0xx_ll_pwr.h"
+#include "stm32c0xx_ll_gpio.h"
+#include "stm32c0xx_ll_dma.h"
+
+#include "stm32c0xx_ll_exti.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -71,8 +82,6 @@ void Error_Handler(void);
 #define IO_POWER_RAIL_DATA_FALL_GPIO_Port GPIOA
 #define LIGHT_MODE_SJ_Pin GPIO_PIN_12
 #define LIGHT_MODE_SJ_GPIO_Port GPIOA
-#define IO_POWER_RAIL_DATA_RISE_Pin GPIO_PIN_6
-#define IO_POWER_RAIL_DATA_RISE_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

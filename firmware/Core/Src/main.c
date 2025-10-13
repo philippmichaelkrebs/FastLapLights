@@ -107,6 +107,11 @@ typedef struct {
 /* USER CODE BEGIN PD */
 #define CIRC_BUF_LEN       	8U
 #define UART_TX_BUF_LEN		(32U) //32U
+
+#define HALF_BIT_TICKS   32
+#define FULL_BIT_TICKS   64
+#define GAP_THRESHOLD    132   // consider 160 as safer midpoint
+#define GLITCH_FILTER    10    // ignore pulses shorter than ~16 µs
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -115,8 +120,6 @@ typedef struct {
 
 /* Private variables ---------------------------------------------------------*/
 
-TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim14;
 TIM_HandleTypeDef htim16;
 DMA_HandleTypeDef hdma_tim16_ch1;
 
@@ -124,7 +127,7 @@ UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
-uint32_t 			millis_sync = 0;
+uint32_t 			track_counter = 0;
 uint32_t 			millis_sync_prev = 0;
 uint16_t 			millis_sync_state_change_flag = 0;
 
@@ -134,8 +137,8 @@ volatile uint16_t 			data_manchester_circular_index = 0;
 volatile uint16_t 			data_manchester_circular_read_index = 0;
 uint16_t 					difference_rw = 0;
 volatile uint16_t 			track_data_available = 0;
-uint32_t 					odd_value = 0;
 uint16_t 					message_to_proceed = 0;
+uint16_t					last_edge = 0;
 
 // race state
 RaceStateHistory 	race_state = {RACE_STATE_STARTUP, RACE_STATE_STARTUP};
@@ -172,22 +175,22 @@ HAL_StatusTypeDef 	uart_status_pwm 							= HAL_OK;
  */
 
 volatile RaceInfo	uart_race_info = {
-						.driver_data = {
-							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
-							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
-							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
-							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
-							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
-							{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 }
-						},
-						.fastest_lap_driver = 0xFF,       // 0xFF no fastest lap yet
-						.start_lights = 0,
-						.lap_count = 0,
-						.lap_count_nibble_completed = 1,
-						.reset_event = 0,
-						.race_state = RACE_STATE_STARTUP,
-						.session_type = RACE
-					};
+		.driver_data = {
+				{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+				{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+				{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+				{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+				{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 },
+				{ .fuel = 0, .position = 0, .finished = 0, .laps = 0 }
+		},
+		.fastest_lap_driver = 0xFF,       // 0xFF no fastest lap yet
+		.start_lights = 0,
+		.lap_count = 0,
+		.lap_count_nibble_completed = 1,
+		.reset_event = 0,
+		.race_state = RACE_STATE_STARTUP,
+		.session_type = RACE
+};
 
 volatile uint16_t 	difference_channel2 = 0;
 volatile uint16_t 	last_rising = 0;
@@ -203,6 +206,8 @@ static void MX_TIM16_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 CuMessage decode_manchester(uint16_t message);
+void HAL_TIM_IC_CaptureCallback_EXTENDED(uint16_t capture, uint8_t direction);
+void (*ptr_man_capture_isr)(uint16_t capture, uint8_t direction) = 0;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -217,7 +222,7 @@ CuMessage decode_manchester(uint16_t message);
 }*/
 
 static inline uint16_t circ_next(uint16_t i) {
-	return (i + 1) % CIRC_BUF_LEN;
+	return (i + 1) & 0x0007; //% CIRC_BUF_LEN;
 }
 
 /*static inline uint16_t circ_prev(uint16_t i) {
@@ -239,19 +244,19 @@ static inline void update_race_state(RaceStateHistory *stateHistory, RaceState n
  */
 
 static inline void update_start_light_value_red(StartLightValue *startLightValue, uint8_t newValue) {
-	startLightValue->red_count = newValue;
 	startLightValue->red_count_prev = startLightValue->red_count;
+	startLightValue->red_count = newValue;
 	startLightValue->update_flag = 1;
 	uart_race_info.start_lights = newValue;
 }
 static inline void update_start_light_value_green(StartLightValue *startLightValue, uint8_t newValue) {
-	startLightValue->green_flag = newValue;
 	startLightValue->green_flag_prev = startLightValue->green_flag;
+	startLightValue->green_flag = newValue;
 	startLightValue->update_flag = 1;
 }
 static inline void update_start_light_value_yellow(StartLightValue *startLightValue, uint8_t newValue) {
-	startLightValue->yellow_flag = newValue;
 	startLightValue->yellow_flag_prev = startLightValue->yellow_flag;
+	startLightValue->yellow_flag = newValue;
 	startLightValue->update_flag = 1;
 }
 /* USER CODE END 0 */
@@ -264,6 +269,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	ptr_man_capture_isr = HAL_TIM_IC_CaptureCallback_EXTENDED;
 
   /* USER CODE END 1 */
 
@@ -297,8 +303,10 @@ int main(void)
 	dma_status_pwm = start_lights_init(&htim16, TIM_CHANNEL_1, TIM_DIER_CC1DE);
 
 	// init track interrupt
-	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3); //
-	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4); //
+	//HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
+	LL_TIM_CC_EnableChannel(TIM3, LL_TIM_CHANNEL_CH4);
+	LL_TIM_EnableIT_CC4(TIM3);
+	LL_TIM_EnableCounter(TIM3);
 
 	// init light behavior
 	light_mode = HAL_GPIO_ReadPin(GPIOA, LIGHT_MODE_SJ_Pin) == 1 ? START_LIGHT_MODE : PIT_LANE_LIGHT_MODE;
@@ -308,11 +316,19 @@ int main(void)
 	uart_race_info.session_type = session_type;
 
 	// init track lights
-	HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1); // red
+	//HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1); // red
+	// Enable output
+	LL_TIM_CC_EnableChannel(TIM14, LL_TIM_CHANNEL_CH1);
+	// Enable counter
+	LL_TIM_EnableCounter(TIM14);
+	// Force update generation to apply settings
+	//LL_TIM_GenerateEvent_UPDATE(TIM14);
+
+
 	TIM14->CCR1 = 0;//80;
 	HAL_GPIO_WritePin(TRACK_GREEN_GPIO_Port, TRACK_GREEN_Pin, GPIO_PIN_RESET);
 
-	  //HAL_UART_Receive_DMA(&huart1, uart_rx_buffer, UART_TX_BUF_LEN);
+	//HAL_UART_Receive_DMA(&huart1, uart_rx_buffer, UART_TX_BUF_LEN);
 
   /* USER CODE END 2 */
 
@@ -354,7 +370,7 @@ int main(void)
 					// car message
 					if ( (data_manchester[read_index].data & (0x0007 << 6)) == (0x0007 << 6)){
 						// safety car message
-						if (data_manchester[read_index].data & (0x01 << 1)){
+						if (data_manchester[read_index].data & (0x0001 << 1)){
 							// safety car active - high priority message
 							message_to_proceed = data_manchester[read_index].data;
 						} else if (message_to_proceed == 0){
@@ -365,7 +381,7 @@ int main(void)
 					}
 				} else if ((data_manchester[read_index].data > 4096-1) && (data_manchester[read_index].data < 8192)){
 					// control unit message
-					millis_sync++; // message block repeats every 75ms
+					track_counter++; // message block repeats every 75ms
 
 					uint16_t encode_signal = data_manchester[read_index].data;
 					uint8_t controller =
@@ -466,11 +482,11 @@ int main(void)
 		 *
 		 * The increment frequency is 13.3 Hz (75ms)
 		 */
-		millis_sync_state_change_flag = millis_sync_prev != millis_sync ? 1 : 0;
-		millis_sync_prev = millis_sync;
+		millis_sync_state_change_flag = millis_sync_prev != track_counter ? 1 : 0;
+		millis_sync_prev = track_counter;
 
 		// do some stuff with 1.3 Hz (750ms)
-		if ((9 < millis_sync - uart_tx_last_transmit) && (1 == millis_sync_state_change_flag)){
+		if ((9 < track_counter - uart_tx_last_transmit) && (1 == millis_sync_state_change_flag)){
 			/*
 			 * Read Race State
 			 */
@@ -496,8 +512,8 @@ int main(void)
 			uart_tx_buffer[write_index++] = 0x00 | uart_race_info.race_state;
 			uart_tx_buffer[write_index++] = 0x00 | uart_race_info.session_type;
 
-			uart_tx_buffer[write_index++] = (0xFF00 & millis_sync) >> 8;
-			uart_tx_buffer[write_index++] = (0x00FF & millis_sync);
+			uart_tx_buffer[write_index++] = (0xFF00 & track_counter) >> 8;
+			uart_tx_buffer[write_index++] = (0x00FF & track_counter);
 
 
 			// set usart clearance because we dont use usart isr
@@ -541,17 +557,17 @@ int main(void)
 					update_race_state(&race_state, RACE_STATE_START_PROC);
 				else if (decoded_data.value == 0) {
 					if  ((race_state.curr == RACE_STATE_START_PROC) && race_state.prev == RACE_STATE_RED_FLAG){
-						start_light_change_time = millis_sync;
+						start_light_change_time = track_counter;
 					}
 					else if (race_state.curr == RACE_STATE_RED_FLAG){
 						update_race_state(&race_state, RACE_STATE_GREEN_FLAG);
-						green_flag_triggered_time = millis_sync;
+						green_flag_triggered_time = track_counter;
 					}
 				}
 			}
 
 			if (RACE_STATE_START_PROC == race_state.curr){
-				if (!start_light_value.red_count && (millis_sync - start_light_change_time > 6)){ // (!start_light_value.red_count && (millis - start_light_change_time > 400))
+				if (!start_light_value.red_count && (track_counter - start_light_change_time > 6)){ // (!start_light_value.red_count && (millis - start_light_change_time > 400))
 					update_race_state(&race_state, RACE_STATE_OPEN);
 					if ((PIT_LANE_LIGHT_MODE == light_mode) || (QUALIFYING_TRAINING == session_type))
 						start_light_value.update_flag = 1;
@@ -576,7 +592,7 @@ int main(void)
 
 				if ((safetycar_debounce == 0) && (race_state.curr == RACE_STATE_YELLOW_FLAG)){
 					update_race_state(&race_state, RACE_STATE_GREEN_FLAG);
-					green_flag_triggered_time = millis_sync;
+					green_flag_triggered_time = track_counter;
 				}
 			}
 		}
@@ -592,8 +608,8 @@ int main(void)
 
 		// SAFETY CAR
 		if (RACE_STATE_YELLOW_FLAG == race_state.curr){
-			if (millis_sync - safetycar_flash_interval > 3){ // (millis - safetycar_flash_interval > 200){
-				safetycar_flash_interval = millis_sync;
+			if (track_counter - safetycar_flash_interval > 3){ // (millis - safetycar_flash_interval > 200){
+				safetycar_flash_interval = track_counter;
 				if (0 == start_light_value.yellow_flag)
 					update_start_light_value_yellow(&start_light_value, 1);
 				else
@@ -608,17 +624,17 @@ int main(void)
 
 		// green flag
 		if (RACE_STATE_GREEN_FLAG == race_state.curr){
-			if (millis_sync - green_flag_millis_flash > 7){ // (millis - green_flag_millis_flash > 500)
+			if (track_counter - green_flag_millis_flash > 7){ // (millis - green_flag_millis_flash > 500)
 				if (!start_light_value.green_flag){
-					green_flag_millis_flash = millis_sync;
+					green_flag_millis_flash = track_counter;
 					update_start_light_value_green(&start_light_value, 1);
 				}else {
-					green_flag_millis_flash = millis_sync;
+					green_flag_millis_flash = track_counter;
 					update_start_light_value_green(&start_light_value, 0);
 				}
 			}
 
-			if (millis_sync - green_flag_triggered_time > 142) //millis - green_flag_triggered_time > 10000
+			if (track_counter - green_flag_triggered_time > 142) //millis - green_flag_triggered_time > 10000
 				update_race_state(&race_state, RACE_STATE_OPEN);
 		}else{
 			if ((1 == start_light_value.green_flag) && (RACE == session_type))
@@ -632,8 +648,8 @@ int main(void)
 
 		// JUMP START
 		if (RACE_STATE_JUMP_START == race_state.curr){
-			if (millis_sync - jump_start_millis_flash > 7){ //(millis - jump_start_millis_flash > 500)
-				jump_start_millis_flash = millis_sync;
+			if (track_counter - jump_start_millis_flash > 7){ //(millis - jump_start_millis_flash > 500)
+				jump_start_millis_flash = track_counter;
 				update_start_light_value_red(&start_light_value, 5);
 				if (!start_light_value.yellow_flag)
 					update_start_light_value_yellow(&start_light_value, 1);
@@ -843,51 +859,45 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_IC_InitTypeDef sConfigIC = {0};
+  LL_TIM_InitTypeDef TIM_InitStruct = {0};
+
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* Peripheral clock enable */
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM3);
+
+  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
+  /**TIM3 GPIO Configuration
+  PA8   ------> TIM3_CH4
+  */
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_8;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  GPIO_InitStruct.Alternate = LL_GPIO_AF_12;
+  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* TIM3 interrupt Init */
+  NVIC_SetPriority(TIM3_IRQn, 0);
+  NVIC_EnableIRQ(TIM3_IRQn);
 
   /* USER CODE BEGIN TIM3_Init 1 */
 
   /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 75-1;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
-  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_4) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  TIM_InitStruct.Prescaler = 74;
+  TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
+  TIM_InitStruct.Autoreload = 65535;
+  TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
+  LL_TIM_Init(TIM3, &TIM_InitStruct);
+  LL_TIM_DisableARRPreload(TIM3);
+  LL_TIM_SetClockSource(TIM3, LL_TIM_CLOCKSOURCE_INTERNAL);
+  LL_TIM_SetTriggerOutput(TIM3, LL_TIM_TRGO_RESET);
+  LL_TIM_DisableMasterSlaveMode(TIM3);
+  LL_TIM_IC_SetActiveInput(TIM3, LL_TIM_CHANNEL_CH4, LL_TIM_ACTIVEINPUT_DIRECTTI);
+  LL_TIM_IC_SetPrescaler(TIM3, LL_TIM_CHANNEL_CH4, LL_TIM_ICPSC_DIV1);
+  LL_TIM_IC_SetFilter(TIM3, LL_TIM_CHANNEL_CH4, LL_TIM_IC_FILTER_FDIV1);
+  LL_TIM_IC_SetPolarity(TIM3, LL_TIM_CHANNEL_CH4, LL_TIM_IC_POLARITY_BOTHEDGE);
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
@@ -906,37 +916,45 @@ static void MX_TIM14_Init(void)
 
   /* USER CODE END TIM14_Init 0 */
 
-  TIM_OC_InitTypeDef sConfigOC = {0};
+  LL_TIM_InitTypeDef TIM_InitStruct = {0};
+  LL_TIM_OC_InitTypeDef TIM_OC_InitStruct = {0};
+
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* Peripheral clock enable */
+  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_TIM14);
 
   /* USER CODE BEGIN TIM14_Init 1 */
 
   /* USER CODE END TIM14_Init 1 */
-  htim14.Instance = TIM14;
-  htim14.Init.Prescaler = 48-1;
-  htim14.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim14.Init.Period = 100;
-  htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim14) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim14, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  TIM_InitStruct.Prescaler = 47;
+  TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
+  TIM_InitStruct.Autoreload = 100;
+  TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
+  LL_TIM_Init(TIM14, &TIM_InitStruct);
+  LL_TIM_DisableARRPreload(TIM14);
+  LL_TIM_OC_EnablePreload(TIM14, LL_TIM_CHANNEL_CH1);
+  TIM_OC_InitStruct.OCMode = LL_TIM_OCMODE_PWM1;
+  TIM_OC_InitStruct.OCState = LL_TIM_OCSTATE_DISABLE;
+  TIM_OC_InitStruct.OCNState = LL_TIM_OCSTATE_DISABLE;
+  TIM_OC_InitStruct.CompareValue = 0;
+  TIM_OC_InitStruct.OCPolarity = LL_TIM_OCPOLARITY_HIGH;
+  LL_TIM_OC_Init(TIM14, LL_TIM_CHANNEL_CH1, &TIM_OC_InitStruct);
+  LL_TIM_OC_DisableFast(TIM14, LL_TIM_CHANNEL_CH1);
   /* USER CODE BEGIN TIM14_Init 2 */
 
   /* USER CODE END TIM14_Init 2 */
-  HAL_TIM_MspPostInit(&htim14);
+  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA);
+  /**TIM14 GPIO Configuration
+  PA7   ------> TIM14_CH1
+  */
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_7;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  GPIO_InitStruct.Alternate = LL_GPIO_AF_4;
+  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
@@ -1078,8 +1096,8 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -1102,76 +1120,37 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(TRACK_GREEN_GPIO_Port, &GPIO_InitStruct);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
-	if (htim->Instance == TIM3) {
-		/*
-		 * 32 ticks are 50 us. This shortens the isr execution time by day and night.
-		 * This is because we can replace the division with a bit shift.
-		 */
+void HAL_TIM_IC_CaptureCallback_EXTENDED(uint16_t capture, uint8_t direction){
+	/*
+	 * 32 ticks are 50 us. This shortens the isr execution time by day and night.
+	 * This is because we can replace the division with a bit shift.
+	 */
+	uint16_t diff = capture - last_edge;
+	if (diff <= GLITCH_FILTER) {
+		return; // glitch: nothing to do
+	}
 
-		//interrupts_total++;
-
-		// falling edge 1
-		if (HAL_TIM_GetActiveChannel(htim) == HAL_TIM_ACTIVE_CHANNEL_3){
-			uint16_t cnt = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
-			difference_channel2 = cnt - data_manchester[data_manchester_circular_index].last_falling;
-			last_rising = (uint16_t)(cnt - data_manchester[data_manchester_circular_index].last_rising);
-
-			if (last_rising > 132){ // 206.25 us - maximum should be 200 us for 010 pattern
-				data_manchester_circular_index = circ_next(data_manchester_circular_index);
-				data_manchester[data_manchester_circular_index].gap = (uint16_t)(cnt - data_manchester[data_manchester_circular_index].last_rising);
-				data_manchester[data_manchester_circular_index].message_started = 0;
-				data_manchester[data_manchester_circular_index].data = 0;
-				data_manchester[data_manchester_circular_index].first_rising = cnt;
-			}
-
-			if (difference_channel2 > 10){ // 15.625 us
-				data_manchester[data_manchester_circular_index].last_falling = cnt;
-
-				//interrupts_total_falling++;
-
-				// manchester decoding
-				if (data_manchester[data_manchester_circular_index].message_started == 0){
-					data_manchester[data_manchester_circular_index].start_time = cnt;
-					data_manchester[data_manchester_circular_index].message_started = 1;
-					data_manchester[data_manchester_circular_index].data = 0x01;
-				} else {
-					if ( (((cnt - data_manchester[data_manchester_circular_index].start_time + 16) >> 5) & 0x0001) == 0) { // if first bit 0 then even then shift and set first bit
-						data_manchester[data_manchester_circular_index].data <<= 1;
-						data_manchester[data_manchester_circular_index].data |= 0x0001;
-					}
-				}
-			}
-
+	if (GAP_THRESHOLD < diff){
+		// if last edge occurs more then 400us ago
+		data_manchester_circular_index = circ_next(data_manchester_circular_index);
+		last_edge = capture;
+		data_manchester[data_manchester_circular_index].data = 0x0001;
+	}
+	else{
+		if ((48 < diff) && (diff < 80)){
+			last_edge = capture;
+			data_manchester[data_manchester_circular_index].data <<= 1;
+			if (0 == direction)
+				data_manchester[data_manchester_circular_index].data |= 0x0001;
 		}
-
-
-		// rising edge
-		if (HAL_TIM_GetActiveChannel(htim) == HAL_TIM_ACTIVE_CHANNEL_4){
-			uint16_t cnt = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4);
-			uint16_t difference_channel1 = cnt - data_manchester[data_manchester_circular_index].last_rising;
-			// rising edge 0
-			if (difference_channel1 > 10){
-				data_manchester[data_manchester_circular_index].last_rising = cnt;
-
-				if (data_manchester[data_manchester_circular_index].message_started == 0){
-					//false_rising_edges++;
-				}
-
-
-				if ( (((cnt - data_manchester[data_manchester_circular_index].start_time + 16) >> 5) & 0x0001) == 0) { // if first bit 0 then even then shift and set first bit
-					data_manchester[data_manchester_circular_index].data <<= 1;
-				}
-			}
-		}
-
 	}
 }
+
 
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim){
 	if (htim->Instance == TIM16)
@@ -1225,8 +1204,7 @@ void Error_Handler(void)
 	}
   /* USER CODE END Error_Handler_Debug */
 }
-
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.

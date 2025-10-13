@@ -8,8 +8,6 @@
 #ifndef INC_TRACK_DATA_DECODER_H_
 #define INC_TRACK_DATA_DECODER_H_
 
-#include "stm32c0xx_hal.h"
-//#include "cufifo.h" // TODO: Implement FIFO
 
 typedef enum {
 	CU_UNKNOWN,

@@ -31,7 +31,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+extern void (*ptr_man_capture_isr)(uint16_t capture, uint8_t direction);
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,7 +57,6 @@
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_tim16_ch1;
-extern TIM_HandleTypeDef htim3;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 /* USER CODE BEGIN EV */
 
@@ -179,9 +178,16 @@ void TIM3_IRQHandler(void)
   /* USER CODE BEGIN TIM3_IRQn 0 */
 
   /* USER CODE END TIM3_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim3);
   /* USER CODE BEGIN TIM3_IRQn 1 */
+	if (LL_TIM_IsActiveFlag_CC4(TIM3)){
+		uint8_t rising = (GPIOA->IDR & (1 << 8)) != 0;
+		uint16_t capture = LL_TIM_IC_GetCaptureCH4(TIM3);
+		LL_TIM_ClearFlag_CC4(TIM3);
+		if (ptr_man_capture_isr){
+			ptr_man_capture_isr(capture, rising);
+		}
 
+	}
   /* USER CODE END TIM3_IRQn 1 */
 }
 
