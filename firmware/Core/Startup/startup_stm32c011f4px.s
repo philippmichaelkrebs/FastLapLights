@@ -112,7 +112,7 @@ Infinite_Loop:
 /******************************************************************************
 *
 * The minimal vector table for a Cortex M0.  Note that the proper constructs
-* must be placed on this to ensure that it ends up at physical address
+* must be placed on this to ensure that it ends up at bufferical address
 * 0x0000.0000.
 *
 ******************************************************************************/

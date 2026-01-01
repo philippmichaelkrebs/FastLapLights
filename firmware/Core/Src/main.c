@@ -123,9 +123,6 @@ typedef struct {
 TIM_HandleTypeDef htim16;
 DMA_HandleTypeDef hdma_tim16_ch1;
 
-UART_HandleTypeDef huart1;
-DMA_HandleTypeDef hdma_usart1_tx;
-
 /* USER CODE BEGIN PV */
 uint32_t 			track_counter = 0;
 uint32_t 			millis_sync_prev = 0;
@@ -152,7 +149,6 @@ uint32_t 			jump_start_millis_flash = 0;
 LightMode 			light_mode = START_LIGHT_MODE;
 StartLightAlignment start_light_alignment = ALIGNMENT_HORIZONTAL;
 SessionType 		session_type = RACE;
-//uint8_t 			startupState = 0;
 uint32_t 			start_light_change_time = 0;
 HAL_StatusTypeDef 	dma_status_pwm = HAL_OK;
 
@@ -162,8 +158,6 @@ DriverData			driver_data[6]								= {0};
 // uart
 static 	 uint8_t	uart_tx_buffer[UART_TX_BUF_LEN] 			;
 uint32_t 			uart_tx_last_transmit						= 0;
-uint8_t				uart_tx_counter								= 0;
-HAL_StatusTypeDef 	uart_status_pwm 							= HAL_OK;
 /*
  * 0x01 - race state
  * 0x02 - driver data (fuel, laps, position)
@@ -206,7 +200,7 @@ static void MX_TIM16_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 CuMessage decode_manchester(uint16_t message);
-void HAL_TIM_IC_CaptureCallback_EXTENDED(uint16_t capture, uint8_t direction);
+void track_data_callback(uint16_t capture, uint8_t direction);
 void (*ptr_man_capture_isr)(uint16_t capture, uint8_t direction) = 0;
 /* USER CODE END PFP */
 
@@ -269,7 +263,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	ptr_man_capture_isr = HAL_TIM_IC_CaptureCallback_EXTENDED;
+	ptr_man_capture_isr = track_data_callback;
 
   /* USER CODE END 1 */
 
@@ -516,9 +510,9 @@ int main(void)
 			uart_tx_buffer[write_index++] = (0x00FF & track_counter);
 
 
-			// set usart clearance because we dont use usart isr
-			huart1.gState = HAL_UART_STATE_READY;
-			uart_status_pwm = HAL_UART_Transmit_DMA(&huart1, uart_tx_buffer, UART_TX_BUF_LEN);
+			LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_2);
+			LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_2); // RX complete interrupt
+			LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_2);
 
 			// reset track reset event
 			uart_race_info.reset_event = 0;
@@ -535,7 +529,7 @@ int main(void)
 		 * If this is the case, only one message contains data of interest.
 		 * A really unlikely case is, when the safety car button will be pressed in the same
 		 * message block the starting lights went off. But this is almost impossible due to
-		 * physical limits. Try it, but you have round about 6.5ms to engage safety car key
+		 * bufferical limits. Try it, but you have round about 6.5ms to engage safety car key
 		 * after the start lights went off ;)
 		 *
 		 */
@@ -815,33 +809,33 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-  __HAL_FLASH_SET_LATENCY(FLASH_LATENCY_1);
+  LL_FLASH_SetLatency(LL_FLASH_LATENCY_1);
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSIDiv = RCC_HSI_DIV1;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  /* HSI configuration and activation */
+  LL_RCC_HSI_Enable();
+  while(LL_RCC_HSI_IsReady() != 1)
   {
-    Error_Handler();
   }
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
-  RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV1;
+  LL_RCC_HSI_SetCalibTrimming(64);
+  LL_RCC_SetHSIDiv(LL_RCC_HSI_DIV_1);
+  /* Set AHB prescaler*/
+  LL_RCC_SetAHBPrescaler(LL_RCC_HCLK_DIV_1);
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  /* Sysclk activation on the HSI */
+  LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_HSI);
+  while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_HSI)
+  {
+  }
+
+  /* Set APB1 prescaler*/
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
+  /* Update CMSIS variable (which can be updated also through SystemCoreClockUpdate function) */
+  LL_SetSystemCoreClock(48000000);
+
+   /* Update the time base */
+  if (HAL_InitTick (TICK_INT_PRIORITY) != HAL_OK)
   {
     Error_Handler();
   }
@@ -1033,35 +1027,85 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 0 */
 
-  /* USER CODE BEGIN USART1_Init 1 */
+  LL_USART_InitTypeDef USART_InitStruct = {0};
 
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  LL_RCC_SetUSARTClockSource(LL_RCC_USART1_CLKSOURCE_PCLK1);
+
+  /* Peripheral clock enable */
+  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_USART1);
+
+  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOB);
+  LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOC);
+  /**USART1 GPIO Configuration
+  PB7   ------> USART1_RX
+  PC14-OSCX_IN (PC14)   ------> USART1_TX
+  */
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_7;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_UP;
+  GPIO_InitStruct.Alternate = LL_GPIO_AF_0;
+  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_14;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  GPIO_InitStruct.Alternate = LL_GPIO_AF_0;
+  LL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /* USART1 DMA Init */
+
+  /* USART1_TX Init */
+  LL_DMA_SetPeriphRequest(DMA1, LL_DMA_CHANNEL_2, LL_DMAMUX_REQ_USART1_TX);
+
+  LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_2, LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
+
+  LL_DMA_SetChannelPriorityLevel(DMA1, LL_DMA_CHANNEL_2, LL_DMA_PRIORITY_LOW);
+
+  LL_DMA_SetMode(DMA1, LL_DMA_CHANNEL_2, LL_DMA_MODE_NORMAL);
+
+  LL_DMA_SetPeriphIncMode(DMA1, LL_DMA_CHANNEL_2, LL_DMA_PERIPH_NOINCREMENT);
+
+  LL_DMA_SetMemoryIncMode(DMA1, LL_DMA_CHANNEL_2, LL_DMA_MEMORY_INCREMENT);
+
+  LL_DMA_SetPeriphSize(DMA1, LL_DMA_CHANNEL_2, LL_DMA_PDATAALIGN_BYTE);
+
+  LL_DMA_SetMemorySize(DMA1, LL_DMA_CHANNEL_2, LL_DMA_MDATAALIGN_BYTE);
+
+  /* USER CODE BEGIN USART1_Init 1 */
+  LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_2, (uint32_t)&USART1->TDR);
+  LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_2, UART_TX_BUF_LEN);
+  LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_2, (uint32_t)uart_tx_buffer);
+  LL_DMA_EnableIT_TC(DMA1, LL_DMA_CHANNEL_2);   // RX complete interrupt
   /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
+  USART_InitStruct.PrescalerValue = LL_USART_PRESCALER_DIV1;
+  USART_InitStruct.BaudRate = 115200;
+  USART_InitStruct.DataWidth = LL_USART_DATAWIDTH_8B;
+  USART_InitStruct.StopBits = LL_USART_STOPBITS_1;
+  USART_InitStruct.Parity = LL_USART_PARITY_NONE;
+  USART_InitStruct.TransferDirection = LL_USART_DIRECTION_TX;
+  USART_InitStruct.HardwareFlowControl = LL_USART_HWCONTROL_NONE;
+  USART_InitStruct.OverSampling = LL_USART_OVERSAMPLING_16;
+  LL_USART_Init(USART1, &USART_InitStruct);
+  LL_USART_SetTXFIFOThreshold(USART1, LL_USART_FIFOTHRESHOLD_1_8);
+  LL_USART_SetRXFIFOThreshold(USART1, LL_USART_FIFOTHRESHOLD_1_8);
+  LL_USART_DisableFIFO(USART1);
+  LL_USART_ConfigAsyncMode(USART1);
+
+  /* USER CODE BEGIN WKUPType USART1 */
+
+  /* USER CODE END WKUPType USART1 */
+
+  LL_USART_Enable(USART1);
+
+  /* Polling USART1 initialisation */
+  while((!(LL_USART_IsActiveFlag_TEACK(USART1))))
   {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(&huart1) != HAL_OK)
-  {
-    Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
 
@@ -1083,8 +1127,8 @@ static void MX_DMA_Init(void)
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   /* DMA1_Channel2_3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_3_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel2_3_IRQn);
+  NVIC_SetPriority(DMA1_Channel2_3_IRQn, 0);
+  NVIC_EnableIRQ(DMA1_Channel2_3_IRQn);
 
 }
 
@@ -1125,7 +1169,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_IC_CaptureCallback_EXTENDED(uint16_t capture, uint8_t direction){
+void track_data_callback(uint16_t capture, uint8_t direction){
 	/*
 	 * 32 ticks are 50 us. This shortens the isr execution time by day and night.
 	 * This is because we can replace the division with a bit shift.

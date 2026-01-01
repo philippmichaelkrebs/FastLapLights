@@ -1,0 +1,4 @@
+../Core/Src/ws2812b_start_lights.c:10:19:start_lights_init	2
+../Core/Src/ws2812b_start_lights.c:35:6:start_lights_set_colour	3
+../Core/Src/ws2812b_start_lights.c:43:19:start_lights_refresh	4
+../Core/Src/ws2812b_start_lights.c:69:6:start_lights_dma_callback	1

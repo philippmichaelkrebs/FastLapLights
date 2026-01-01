@@ -57,7 +57,6 @@ extern void (*ptr_man_capture_isr)(uint16_t capture, uint8_t direction);
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_tim16_ch1;
-extern DMA_HandleTypeDef hdma_usart1_tx;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -164,9 +163,10 @@ void DMA1_Channel2_3_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 0 */
 
   /* USER CODE END DMA1_Channel2_3_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart1_tx);
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 1 */
-
+	if (LL_DMA_IsActiveFlag_TC1(DMA1)){
+		LL_DMA_ClearFlag_TC1(DMA1);
+	}
   /* USER CODE END DMA1_Channel2_3_IRQn 1 */
 }
 
