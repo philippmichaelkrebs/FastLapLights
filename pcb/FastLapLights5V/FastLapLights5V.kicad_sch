@@ -6,8 +6,8 @@
 	(paper "A4")
 	(title_block
 		(title "FastLapLights5V")
-		(date "2025-06-11")
-		(rev "MK7")
+		(date "2025-10-14")
+		(rev "MK8")
 		(comment 1 "18V Supply Power Rail")
 		(comment 2 "5V WS2812b PWR & SIG")
 		(comment 3 "3.3V uC Power Supply")
@@ -3409,6 +3409,10 @@
 		(uuid "ba0bfd54-faaf-4510-b542-f014c842e0e2")
 	)
 	(no_connect
+		(at 175.26 67.31)
+		(uuid "e0ca07e2-fe47-4553-ba99-9391b0d3ae3f")
+	)
+	(no_connect
 		(at 210.82 59.69)
 		(uuid "fe81b5ce-f2a3-46ab-bbf7-7972a6e92530")
 	)
@@ -4271,16 +4275,6 @@
 			(type default)
 		)
 		(uuid "9a1a9909-eecc-4140-8769-4247c0478c6f")
-	)
-	(wire
-		(pts
-			(xy 156.21 67.31) (xy 175.26 67.31)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "9aafc120-849c-48ce-9f4c-4626e342696c")
 	)
 	(wire
 		(pts
@@ -5317,16 +5311,6 @@
 			(justify left bottom)
 		)
 		(uuid "c52e7fa8-4449-4a94-87da-ef5073732fb2")
-	)
-	(label "IO_POWER_RAIL_DATA"
-		(at 156.21 67.31 0)
-		(effects
-			(font
-				(size 1.1 1.1)
-			)
-			(justify left bottom)
-		)
-		(uuid "d9e3e9f3-0f24-41c3-b171-40d259d53453")
 	)
 	(label "SWD_SWCLK"
 		(at 266.7 102.87 180)
